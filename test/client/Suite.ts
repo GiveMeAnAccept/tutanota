@@ -55,6 +55,8 @@ import "./common/TranslationKeysTest"
 import o from "ospec"
 import {random} from "@tutao/tutanota-crypto"
 import {preTest, reportTest} from "../api/TestUtils"
+import * as td from "testdouble"
+import {arrayEquals} from "@tutao/tutanota-utils"
 
 (async () => {
 	if (typeof process != "undefined") {
@@ -78,6 +80,13 @@ import {preTest, reportTest} from "../api/TestUtils"
 		await import("./desktop/DeviceKeyProviderTest.js")
 		await import ("./desktop/config/ConfigFileTest.js")
 	}
+
+	o.afterEach(function() {
+		td.config({
+			ignoreWarnings: true
+		})
+		td.reset()
+	})
 
 	preTest()
 	// @ts-ignore

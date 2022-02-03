@@ -318,24 +318,12 @@ export class ContactFormRequestDialog {
 					const name = ""
 					const mailAddress = contactFormResult.requestMailAddress
 					const draft = await mailFacade.createDraft(
-						this._subject,
-						this._editor.getValue(),
-						userEmailAddress,
-						"",
-						[
+						{subject : this._subject, bodyText : this._editor.getValue(), senderMailAddress : userEmailAddress, senderName : "", toRecipients : [
 							createDraftRecipient({
 								name,
 								mailAddress,
 							}),
-						],
-						[],
-						[],
-						ConversationType.NEW,
-						null,
-						this._attachments,
-						true,
-						[],
-						MailMethod.NONE,
+						], ccRecipients : [], bccRecipients : [], conversationType : ConversationType.NEW, previousMessageId : null, attachments : this._attachments, confidential : true, replyTos : [], method : MailMethod.NONE},
 					)
 					await mailFacade.sendDraft(draft, [makeRecipientDetails(name, mailAddress, RecipientInfoType.INTERNAL, null)], lang.code)
 				} finally {

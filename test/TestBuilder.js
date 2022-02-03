@@ -6,6 +6,7 @@ import path, {dirname} from "path"
 import {renderHtml} from "../buildSrc/LaunchHtml.js"
 import {fileURLToPath} from "url"
 import nodeResolve from "@rollup/plugin-node-resolve"
+import rollupPluginJson from "@rollup/plugin-json"
 
 const root = dirname(fileURLToPath(import.meta.url))
 
@@ -28,6 +29,7 @@ export async function build(buildOptions, serverOptions, log) {
 			envPlugin(localEnv),
 			resolveTestLibsPlugin(),
 			...rollupDebugPlugins(path.resolve(".."), {outDir: "build"}),
+			rollupPluginJson(),
 			nodeResolve({preferBuiltins: true}),
 		],
 	})
@@ -67,6 +69,8 @@ function resolveTestLibsPlugin() {
 					return path.resolve("../node_modules/mithril/test-utils/browserMock.js")
 				case "ospec":
 					return ("../node_modules/ospec/ospec.js")
+				case "testdouble":
+					return ("../node_modules/testdouble/dist/testdouble.js")
 				case "crypto":
 				case "xhr2":
 				case "express":

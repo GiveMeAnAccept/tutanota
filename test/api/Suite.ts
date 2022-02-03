@@ -32,6 +32,7 @@ import "../api/common/PlainTextSearchTest"
 import "../api/common/EntityUtilsTest"
 import {preTest, reportTest} from "./TestUtils"
 import {random} from "@tutao/tutanota-crypto"
+import * as td from "testdouble"
 
 (async function () {
 
@@ -51,6 +52,15 @@ import {random} from "@tutao/tutanota-crypto"
 	// setup the Entropy for all testcases
 	await random.addEntropy([{data: 36, entropy: 256, source: "key"}])
 	preTest()
+
+
+	o.afterEach(function () {
+		td.config({
+			ignoreWarnings: true
+		})
+		td.reset()
+	})
+
 
 	// @ts-ignore
 	o.run(reportTest)
