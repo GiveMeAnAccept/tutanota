@@ -199,10 +199,7 @@ async function buildWebapp(version) {
 		preserveEntrySignatures: false,
 		perf: true,
 		plugins: [
-			typescript({
-				// module: "CommonJS",
-				// outDir: "build/dist"
-			}),
+			typescript({}),
 			resolveLibs(),
 			commonjs({
 				exclude: "src/**",
@@ -606,6 +603,6 @@ function analyzer() {
 
 async function fileExists(filePath) {
 	return fs.stat(filePath)
-	         .then(stats => stats.isFile())
-	         .catch(() => false)
+			 .then(stats => stats.isFile())
+			 .catch(() => false)
 }

@@ -2,6 +2,7 @@ import path from "path"
 import {BuildServerClient} from "@tutao/tutanota-build-server"
 import {fetchDictionaries} from "./DictionaryFetcher.js"
 import fs from "fs-extra"
+import {spawnSync} from "child_process"
 
 export async function runDevBuild({stage, host, desktop, clean, watch, serve}) {
 
@@ -9,6 +10,10 @@ export async function runDevBuild({stage, host, desktop, clean, watch, serve}) {
 		console.log("cleaning build dir")
 		fs.emptyDir("build")
 	}
+
+	console.log("building packages")
+	spawnSync("npm", ["run", "build-packages"], {stdio: "inherit"})
+
 
 	const doClean = clean ?? false
 
