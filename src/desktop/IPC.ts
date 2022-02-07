@@ -27,6 +27,9 @@ import {ElectronExports, WebContentsEvent} from "./ElectronExportTypes";
 import {DataFile} from "../api/common/DataFile";
 import {Logger} from "../api/common/Logger"
 import {DektopCredentialsEncryption} from "./credentials/DektopCredentialsEncryption"
+import {INativeWebauthnController} from "../native/main/INativeWebauthnController"
+import {exposeLocal} from "../api/common/WorkerProxy"
+import {ExposedNativeInterface} from "../native/common/NativeInterface"
 
 /**
  * node-side endpoint for communication between the renderer threads and the node thread
@@ -48,9 +51,11 @@ export class IPC {
 	readonly _integrator: DesktopIntegrator
 	readonly _themeManager: ThemeManager
 	readonly _credentialsEncryption: DektopCredentialsEncryption
+	readonly webauthnController: INativeWebauthnController
 	_initialized: Array<DeferredObject<void>>
 	_requestId: number = 0
 	readonly _queue: Record<string, (...args: Array<any>) => any>
+	private readonly facadeHandler: (message: Request<NativeRequestType>) => Promise<any>
 
 	constructor(
 		conf: DesktopConfig,
@@ -68,7 +73,8 @@ export class IPC {
 		integrator: DesktopIntegrator,
 		alarmScheduler: DesktopAlarmScheduler,
 		themeManager: ThemeManager,
-		credentialsEncryption: DektopCredentialsEncryption
+		credentialsEncryption: DektopCredentialsEncryption,
+		webauthnController: INativeWebauthnController
 	) {
 		this._conf = conf
 		this._sse = sse
@@ -86,6 +92,10 @@ export class IPC {
 		this._alarmScheduler = alarmScheduler
 		this._themeManager = themeManager
 		this._credentialsEncryption = credentialsEncryption
+		this.webauthnController = webauthnController
+		this.facadeHandler = exposeLocal<ExposedNativeInterface, NativeRequestType>({
+			webauthnController: this.webauthnController
+		})
 
 		if (!!this._updater) {
 			this._updater.setUpdateDownloadedListener(() => {
@@ -419,6 +429,9 @@ export class IPC {
 			case "getSupportedEncryptionModes": {
 				return this._credentialsEncryption.getSupportedEncryptionModes()
 			}
+
+			case "facade":
+				return this.facadeHandler(new Request(method, args))
 
 			default:
 				return Promise.reject(new Error(`Invalid Method invocation: ${method}`))

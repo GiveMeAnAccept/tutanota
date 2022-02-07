@@ -13,7 +13,6 @@ import {Socketeer} from "./Socketeer"
 import {DesktopAlarmStorage} from "./sse/DesktopAlarmStorage"
 import {DesktopAlarmScheduler} from "./sse/DesktopAlarmScheduler"
 import {lang} from "../misc/LanguageViewModel"
-// @ts-ignore[untyped-import]
 import en from "../translations/en"
 import {DesktopNetworkClient} from "./DesktopNetworkClient"
 import {DesktopCryptoFacade} from "./DesktopCryptoFacade"
@@ -38,6 +37,7 @@ import {DateProviderImpl} from "../calendar/date/CalendarUtils"
 import {ThemeManager} from "./ThemeManager"
 import {BuildConfigKey, DesktopConfigKey} from "./config/ConfigKeys";
 import {DektopCredentialsEncryption, DesktopCredentialsEncryptionImpl} from "./credentials/DektopCredentialsEncryption"
+import {DesktopWebauthnController} from "./2fa/DesktopWebauthnController.js"
 
 mp()
 type Components = {
@@ -120,6 +120,7 @@ async function createComponents(): Promise<Components> {
 		log.error("Could not reschedule alarms", e)
 		return sse.resetStoredState()
 	})
+	const webauthnController = new DesktopWebauthnController()
 	tray.setWindowManager(wm)
 	const sse = new DesktopSseClient(app, conf, notifier, wm, desktopAlarmScheduler, desktopNet, desktopCrypto, alarmStorage, lang)
 	// It should be ok to await this, all we are waiting for is dynamic imports
@@ -141,6 +142,7 @@ async function createComponents(): Promise<Components> {
 		desktopAlarmScheduler,
 		themeManager,
 		credentialsEncryption,
+		webauthnController
 	)
 	wm.setIPC(ipc)
 	conf.getConst(BuildConfigKey.appUserModelId).then(appUserModelId => {

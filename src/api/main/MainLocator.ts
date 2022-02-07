@@ -46,6 +46,9 @@ import {SecondFactorHandler} from "../../misc/2fa/SecondFactorHandler"
 import {WebauthnClient} from "../../misc/2fa/webauthn/WebauthnClient"
 import {UserManagementFacade} from "../worker/facades/UserManagementFacade"
 import {GroupManagementFacade} from "../worker/facades/GroupManagementFacade"
+import {INativeWebauthnController} from "../../native/main/INativeWebauthnController"
+import {exposeRemote} from "../common/WorkerProxy"
+import {ExposedNativeInterface} from "../../native/common/NativeInterface"
 
 assertMainOrNode()
 
@@ -84,6 +87,7 @@ export interface IMainLocator {
 	readonly userManagementFacade: UserManagementFacade
 	readonly contactFormFacade: ContactFormFacade
 	readonly deviceEncryptionFacade: DeviceEncryptionFacade
+	readonly webauthnController: INativeWebauthnController
 	readonly init: () => Promise<void>
 	readonly initialized: Promise<void>
 }
@@ -135,6 +139,10 @@ class MainLocator implements IMainLocator {
 
 	get systemApp(): NativeSystemApp {
 		return this._getNativeInterface("systemApp")
+	}
+
+	get webauthnController(): INativeWebauthnController {
+		return exposeRemote<ExposedNativeInterface>((msg) => this.native.invokeNative(msg)).webauthnController
 	}
 
 	_getNativeInterface<T extends keyof NativeInterfaces>(name: T): NativeInterfaces[T] {

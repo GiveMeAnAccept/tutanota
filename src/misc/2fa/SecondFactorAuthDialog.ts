@@ -11,6 +11,8 @@ import {WebauthnCancelledError, WebauthnClient, WebauthnError} from "./webauthn/
 import {appIdToLoginDomain} from "./SecondFactorHandler"
 import type {Challenge} from "../../api/entities/sys/Challenge"
 import type {LoginFacade} from "../../api/worker/facades/LoginFacade"
+import {isDesktop} from "../../api/common/Env"
+import {locator} from "../../api/main/MainLocator"
 
 type AuthData = {
 	readonly sessionId: IdTuple
@@ -101,12 +103,13 @@ export class SecondFactorAuthDialog {
 
 		const keys = u2fChallenge ? assertNotNull(u2fChallenge.u2f).keys : []
 
-		const u2fSupported = this._webauthnClient.isSupported()
+		const u2fSupported = isDesktop() || this._webauthnClient.isSupported()
 
 		console.log("webauthn supported: ", u2fSupported)
 		// Because of whitelabel keys can ge registered on another domains
 		// If it's a new Webauthn key it will match rpId, otherwise it will match legacy appId
-		const keyForThisDomainExisting = keys.some(key => key.appId === this._webauthnClient.rpId || key.appId === this._webauthnClient.appId)
+		// TODO: in apps we can do it with any key
+		const keyForThisDomainExisting = isDesktop() || keys.some(key => key.appId === this._webauthnClient.rpId || key.appId === this._webauthnClient.appId)
 		const canLoginWithU2f = u2fSupported && keyForThisDomainExisting
 		const otherDomainAppIds = keys.filter(key => key.appId !== this._webauthnClient.rpId).map(key => key.appId)
 		const otherLoginDomain = otherDomainAppIds.length > 0 ? appIdToLoginDomain(otherDomainAppIds[0]) : null
@@ -186,9 +189,18 @@ export class SecondFactorAuthDialog {
 		const abortSignal = this._webauthnAbortController.signal
 		abortSignal.addEventListener("abort", () => console.log("aborted webauthn"))
 		const sessionId = this._authData.sessionId
+		const challenge = assertNotNull(u2fChallenge.u2f)
 
 		try {
-			const webauthnResponseData = await this._webauthnClient.sign(sessionId, assertNotNull(u2fChallenge.u2f), abortSignal)
+			let webauthnResponseData
+			if (isDesktop()) {
+				// TODO: dirt, dirt dirt
+				//   1. Inject some sane interface instead of both controller and client
+				//   2. Make that interface figure out the URL based on challenge (can do in the native part too I think)
+				webauthnResponseData = await locator.webauthnController.sign("https://local.tutanota.com:9000/client/build", challenge)
+			} else {
+				webauthnResponseData = await this._webauthnClient.sign(challenge, abortSignal)
+			}
 			const authData = createSecondFactorAuthData({
 				type: SecondFactorType.webauthn,
 				session: sessionId,

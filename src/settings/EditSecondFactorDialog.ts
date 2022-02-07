@@ -7,7 +7,7 @@ import type {TranslationKey} from "../misc/LanguageViewModel"
 import {lang} from "../misc/LanguageViewModel"
 import type {TextFieldAttrs} from "../gui/base/TextFieldN"
 import {TextFieldN} from "../gui/base/TextFieldN"
-import {isApp, isTutanotaDomain} from "../api/common/Env"
+import {isApp, isDesktop, isTutanotaDomain} from "../api/common/Env"
 import m, {Children} from "mithril"
 import type {ButtonAttrs} from "../gui/base/ButtonN"
 import {ButtonN, ButtonType} from "../gui/base/ButtonN"
@@ -31,6 +31,7 @@ import {GroupInfoTypeRef} from "../api/entities/sys/GroupInfo"
 import {EntityClient} from "../api/common/EntityClient"
 import {ProgrammingError} from "../api/common/error/ProgrammingError"
 import type {TotpSecret} from "@tutao/tutanota-crypto"
+import {INativeWebauthnController} from "../native/main/INativeWebauthnController"
 
 const enum VerificationStatus {
 	Initial = "Initial",
@@ -64,14 +65,17 @@ export class EditSecondFactorDialog {
 		url: string
 	}>
 	private _webauthnAbortController: AbortController | null = null
+	private readonly nativeWebauthnController: INativeWebauthnController
 
-	constructor(entityClient: EntityClient, user: User, mailAddress: string, webauthnSupport: boolean, totpKeys: TotpSecret) {
+	constructor(entityClient: EntityClient, user: User, mailAddress: string, webauthnSupport: boolean, totpKeys: TotpSecret, nativeWebauthnController: INativeWebauthnController) {
 		this._entityClient = entityClient
 		this._user = user
 		this._mailAddress = mailAddress
-		this._webauthnSupport = webauthnSupport
+		this.nativeWebauthnController = nativeWebauthnController
+		// TODO: no
+		this._webauthnSupport = webauthnSupport || isDesktop()
 		this._totpKeys = totpKeys
-		this._selectedType = webauthnSupport ? FactorTypes.WEBAUTHN : FactorTypes.TOTP
+		this._selectedType = this._webauthnSupport ? FactorTypes.WEBAUTHN : FactorTypes.TOTP
 		this._otpInfo = new LazyLoaded(async () => {
 			const url = await this._getOtpAuthUrl(this._totpKeys.readableKey)
 			let totpQRCodeSvg
@@ -118,13 +122,17 @@ export class EditSecondFactorDialog {
 				return
 			}
 
-			this._verificationStatus = VerificationStatus.Progress
-			this._webauthnAbortController = new AbortController()
-			const abortSignal = this._webauthnAbortController.signal
-
 			try {
-				this._u2fRegistrationData = await new WebauthnClient().register(this._user._id, this._name, this._mailAddress, abortSignal)
-				this._verificationStatus = VerificationStatus.Success
+				// TODO: Like in SecondFactorAuthDialog, have a common interface for this thing
+				if (isDesktop()) {
+					this._u2fRegistrationData = await this.nativeWebauthnController.register("https://local.tutanota.com:9000/client/build", this._user._id, this._name, this._mailAddress)
+					this._verificationStatus = VerificationStatus.Success
+				} else {
+					this._webauthnAbortController = new AbortController()
+					const abortSignal = this._webauthnAbortController.signal
+					this._u2fRegistrationData = await new WebauthnClient().register(this._user._id, this._name, this._mailAddress, abortSignal)
+					this._verificationStatus = VerificationStatus.Success
+				}
 			} catch (e) {
 				console.log("Webauthn registration failed: ", e)
 				this._u2fRegistrationData = null
@@ -301,7 +309,7 @@ export class EditSecondFactorDialog {
 		const webAuthnPromise = webAuthn.isSupported()
 		const userPromise = user.getAsync()
 		showProgressDialog("pleaseWait_msg", Promise.all([totpPromise, webAuthnPromise, userPromise])).then(([totpKeys, u2fSupport, user]) => {
-			new EditSecondFactorDialog(entityClient, user, mailAddress, u2fSupport, totpKeys)._dialog.show()
+			new EditSecondFactorDialog(entityClient, user, mailAddress, u2fSupport, totpKeys, locator.webauthnController)._dialog.show()
 		})
 	}
 

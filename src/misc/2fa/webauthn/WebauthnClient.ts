@@ -104,7 +104,7 @@ export class WebauthnClient {
 		})
 	}
 
-	async sign(sessionId: IdTuple, challenge: U2fChallenge, signal?: AbortSignal): Promise<WebauthnResponseData> {
+	async sign(challenge: U2fChallenge, signal?: AbortSignal): Promise<WebauthnResponseData> {
 		const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
 			challenge: challenge.challenge,
 			rpId: this.rpId,
