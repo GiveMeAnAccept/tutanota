@@ -19,6 +19,7 @@ import {ProgrammingError} from "./api/common/error/ProgrammingError"
 import {CurrentView} from "./gui/base/Header"
 import {NativeWebauthnView} from "./login/NativeWebauthnView"
 import {WebauthnNativeBridge} from "./native/main/WebauthnNativeBridge"
+import {CredentialsApi} from "./misc/2fa/webauthn/WebauthnTypes"
 
 assertMainOrNodeBoot()
 bootFinished()
@@ -292,10 +293,11 @@ import("./translations/en")
 			},
 			webauthn: createViewResolver(
 				async () => {
-					const {WebauthnClient} = await import("./misc/2fa/webauthn/WebauthnClient.js")
+					const {BrowserWebauthn} = await import("./misc/2fa/webauthn/WebauthnClient.js")
 					const {NativeWebauthnView} = await import("./login/NativeWebauthnView.js")
 					const {WebauthnNativeBridge} = await import("./native/main/WebauthnNativeBridge.js")
-					return new NativeWebauthnView(new WebauthnClient(), new WebauthnNativeBridge())
+					const creds = navigator.credentials as CredentialsApi
+					return new NativeWebauthnView(new BrowserWebauthn(creds, window.location.hostname), new WebauthnNativeBridge())
 				},
 				false,
 				false

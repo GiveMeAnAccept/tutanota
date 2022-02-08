@@ -27,9 +27,9 @@ import {ElectronExports, WebContentsEvent} from "./ElectronExportTypes";
 import {DataFile} from "../api/common/DataFile";
 import {Logger} from "../api/common/Logger"
 import {DektopCredentialsEncryption} from "./credentials/DektopCredentialsEncryption"
-import {INativeWebauthnController} from "../native/main/INativeWebauthnController"
 import {exposeLocal} from "../api/common/WorkerProxy"
 import {ExposedNativeInterface} from "../native/common/NativeInterface"
+import {IWebauthn} from "../misc/2fa/webauthn/WebauthnClient"
 
 /**
  * node-side endpoint for communication between the renderer threads and the node thread
@@ -51,7 +51,7 @@ export class IPC {
 	readonly _integrator: DesktopIntegrator
 	readonly _themeManager: ThemeManager
 	readonly _credentialsEncryption: DektopCredentialsEncryption
-	readonly webauthnController: INativeWebauthnController
+	readonly webauthn: IWebauthn
 	_initialized: Array<DeferredObject<void>>
 	_requestId: number = 0
 	readonly _queue: Record<string, (...args: Array<any>) => any>
@@ -74,7 +74,7 @@ export class IPC {
 		alarmScheduler: DesktopAlarmScheduler,
 		themeManager: ThemeManager,
 		credentialsEncryption: DektopCredentialsEncryption,
-		webauthnController: INativeWebauthnController
+		webauthnController: IWebauthn
 	) {
 		this._conf = conf
 		this._sse = sse
@@ -92,9 +92,9 @@ export class IPC {
 		this._alarmScheduler = alarmScheduler
 		this._themeManager = themeManager
 		this._credentialsEncryption = credentialsEncryption
-		this.webauthnController = webauthnController
+		this.webauthn = webauthnController
 		this.facadeHandler = exposeLocal<ExposedNativeInterface, NativeRequestType>({
-			webauthnController: this.webauthnController
+			webauthnController: this.webauthn
 		})
 
 		if (!!this._updater) {

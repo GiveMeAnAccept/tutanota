@@ -107,7 +107,7 @@ export interface PublicKeyCredentialRequestOptions {
 }
 
 export interface CredentialsApi {
-	create(options: CredentialCreationOptions): Promise<Credential>
+	create(options?: CredentialCreationOptions): Promise<Credential | null>
 
-	get(options: CredentialRequestOptions): Promise<Credential>
+	get(options?: CredentialRequestOptions): Promise<Credential | null>
 }

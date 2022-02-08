@@ -7,7 +7,7 @@ import {AccessBlockedError, BadRequestError, NotAuthenticatedError} from "../../
 import {Dialog} from "../../gui/base/Dialog"
 import m from "mithril"
 import {SecondFactorAuthView} from "./SecondFactorAuthView"
-import {WebauthnCancelledError, WebauthnClient, WebauthnError} from "./webauthn/WebauthnClient"
+import {IWebauthnClient, WebauthnCancelledError, WebauthnClient, WebauthnError} from "./webauthn/WebauthnClient"
 import {appIdToLoginDomain} from "./SecondFactorHandler"
 import type {Challenge} from "../../api/entities/sys/Challenge"
 import type {LoginFacade} from "../../api/worker/facades/LoginFacade"
@@ -45,7 +45,7 @@ type OtpState = {
  *  - lost access button
  * */
 export class SecondFactorAuthDialog {
-	readonly _webauthnClient: WebauthnClient
+	readonly _webauthnClient: IWebauthnClient
 	readonly _loginFacade: LoginFacade
 	readonly _authData: AuthData
 	readonly _onClose: Thunk
@@ -55,7 +55,7 @@ export class SecondFactorAuthDialog {
 	otpState: OtpState
 
 	/** @private */
-	private constructor(webauthnClient: WebauthnClient, loginFacade: LoginFacade, authData: AuthData, onClose: Thunk) {
+	private constructor(webauthnClient: IWebauthnClient, loginFacade: LoginFacade, authData: AuthData, onClose: Thunk) {
 		this._webauthnClient = webauthnClient
 		this._authData = authData
 		this._onClose = onClose
@@ -75,7 +75,7 @@ export class SecondFactorAuthDialog {
 	 * @param authData
 	 * @param onClose will be called when the dialog is closed (one way or another).
 	 */
-	static show(webauthnClient: WebauthnClient, loginFacade: LoginFacade, authData: AuthData, onClose: Thunk): SecondFactorAuthDialog {
+	static show(webauthnClient: IWebauthnClient, loginFacade: LoginFacade, authData: AuthData, onClose: Thunk): SecondFactorAuthDialog {
 		const dialog = new SecondFactorAuthDialog(webauthnClient, loginFacade, authData, onClose)
 
 		dialog._show()
@@ -108,11 +108,11 @@ export class SecondFactorAuthDialog {
 		console.log("webauthn supported: ", u2fSupported)
 		// Because of whitelabel keys can ge registered on another domains
 		// If it's a new Webauthn key it will match rpId, otherwise it will match legacy appId
-		// TODO: in apps we can do it with any key
-		const keyForThisDomainExisting = isDesktop() || keys.some(key => key.appId === this._webauthnClient.rpId || key.appId === this._webauthnClient.appId)
-		const canLoginWithU2f = u2fSupported && keyForThisDomainExisting
-		const otherDomainAppIds = keys.filter(key => key.appId !== this._webauthnClient.rpId).map(key => key.appId)
-		const otherLoginDomain = otherDomainAppIds.length > 0 ? appIdToLoginDomain(otherDomainAppIds[0]) : null
+		const canLoginWithU2f = u2fChallenge?.u2f && u2fSupported && this._webauthnClient.canAttemptChallenge(u2fChallenge.u2f)
+
+		// const otherDomainAppIds = keys.filter(key => key.appId !== this._webauthnClient.rpId).map(key => key.appId)
+		// TODO
+		const otherLoginDomain = null // otherDomainAppIds.length > 0 ? appIdToLoginDomain(otherDomainAppIds[0]) : null
 		const {mailAddress} = this._authData
 		this._waitingForSecondFactorDialog = Dialog.showActionDialog({
 			title: "",
@@ -192,15 +192,7 @@ export class SecondFactorAuthDialog {
 		const challenge = assertNotNull(u2fChallenge.u2f)
 
 		try {
-			let webauthnResponseData
-			if (isDesktop()) {
-				// TODO: dirt, dirt dirt
-				//   1. Inject some sane interface instead of both controller and client
-				//   2. Make that interface figure out the URL based on challenge (can do in the native part too I think)
-				webauthnResponseData = await locator.webauthnController.sign("https://local.tutanota.com:9000/client/build", challenge)
-			} else {
-				webauthnResponseData = await this._webauthnClient.sign(challenge, abortSignal)
-			}
+			const webauthnResponseData = await this._webauthnClient.authenticate(challenge, abortSignal)
 			const authData = createSecondFactorAuthData({
 				type: SecondFactorType.webauthn,
 				session: sessionId,

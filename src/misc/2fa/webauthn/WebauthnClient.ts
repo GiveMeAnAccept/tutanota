@@ -20,7 +20,14 @@ import {ProgrammingError} from "../../../api/common/error/ProgrammingError"
 
 const WEBAUTHN_TIMEOUT_MS = 60000
 
-interface IWebauthnClient {
+export type WebAuthnChallenge = {
+	challenge: Uint8Array,
+	id: string,
+	name: string,
+	displayName: string,
+}
+
+export interface IWebauthnClient {
 	isSupported(): boolean;
 
 	/** Whether it's possible to attempt a challenge. It might not be possible if there are not keys for this domain. */
@@ -31,19 +38,19 @@ interface IWebauthnClient {
 	authenticate(challenge: U2fChallenge, signal?: AbortSignal): Promise<WebauthnResponseData>;
 }
 
-interface IWebauthn {
+export interface IWebauthn {
 	isSupported(): boolean;
 
 	canAttemptChallengeForRpId(rpId: string): boolean;
 
 	canAttemptChallengeForU2FAppId(appId: string): boolean;
 
-	register(challenge: Uint8Array, id: string, name: string, displayName: string): Promise<{credential: PublicKeyCredential, rpId: string}>;
+	register(challenge: WebAuthnChallenge): Promise<{credential: PublicKeyCredential, rpId: string}>;
 
 	sign(challenge: Uint8Array, keys: Array<PublicKeyCredentialDescriptor>): Promise<PublicKeyCredential>;
 }
 
-class BrowserWebauthn implements IWebauthn {
+export class BrowserWebauthn implements IWebauthn {
 	/**
 	 * Relying Party Identifier
 	 * see https://www.w3.org/TR/webauthn-2/#public-key-credential-source-rpid
@@ -75,7 +82,7 @@ class BrowserWebauthn implements IWebauthn {
 			!BigInt.polyfilled
 	}
 
-	async register(challenge: Uint8Array, id: string, name: string, displayName: string): Promise<{credential: PublicKeyCredential, rpId: string}> {
+	async register({challenge, id, name, displayName}: WebAuthnChallenge): Promise<{credential: PublicKeyCredential, rpId: string}> {
 		const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
 			challenge,
 			rp: {
@@ -95,6 +102,7 @@ class BrowserWebauthn implements IWebauthn {
 			],
 			authenticatorSelection: {
 				authenticatorAttachment: "cross-platform",
+				userVerification: "discouraged"
 			},
 			timeout: WEBAUTHN_TIMEOUT_MS,
 			attestation: "none",
@@ -176,7 +184,7 @@ export class WebauthnClient implements IWebauthnClient {
 	async register(userId: Id, name: string, mailAddress: string, signal: AbortSignal): Promise<U2fRegisteredDevice> {
 		const challenge = this.getChallenge()
 
-		const {credential, rpId} = await this.webauthn.register(challenge, userId, `${userId} ${mailAddress} ${name}`, name)
+		const {credential, rpId} = await this.webauthn.register({challenge, id: userId, name: `${userId} ${mailAddress} ${name}`, displayName: name})
 
 		const response = credential.response as AuthenticatorAttestationResponse
 

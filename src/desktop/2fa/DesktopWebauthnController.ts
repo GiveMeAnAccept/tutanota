@@ -1,14 +1,13 @@
-import type {INativeWebauthnController} from "../../native/main/INativeWebauthnController.js"
-import type {U2fRegisteredDevice} from "../../api/entities/sys/U2fRegisteredDevice.js"
 import {app, BrowserWindow, ipcMain} from "electron"
 import path from "path"
 import {WebContentsEvent} from "../ElectronExportTypes.js"
-import {Message, MessageDispatcher, Request, Transport} from "../../api/common/MessageDispatcher.js"
+import {Message, MessageDispatcher, Transport} from "../../api/common/MessageDispatcher.js"
 import {defer} from "@tutao/tutanota-utils"
 import {NativeToWebRequest, WebToNativeRequest} from "../../native/main/WebauthnNativeBridge.js"
 import {CancelledError} from "../../api/common/error/CancelledError"
-import {U2fChallenge} from "../../api/entities/sys/U2fChallenge"
-import {WebauthnResponseData} from "../../api/entities/sys/WebauthnResponseData"
+import type {IWebauthn, WebAuthnChallenge} from "../../misc/2fa/webauthn/WebauthnClient"
+import {exposeRemote} from "../../api/common/WorkerProxy.js"
+import {PublicKeyCredential} from "../../misc/2fa/webauthn/WebauthnTypes"
 import WebContents = Electron.WebContents
 import IpcMain = Electron.IpcMain
 
@@ -49,10 +48,10 @@ class ElectronNativeTransport implements Transport<NativeToWebRequest, WebToNati
 	}
 }
 
-export class DesktopWebauthnController implements INativeWebauthnController {
+export class DesktopWebauthnController implements IWebauthn {
 	private readonly centralIpcHandler = new CentralIpcHandler(ipcMain)
 
-	private async init(webContents: WebContents): Promise<MessageDispatcher<NativeToWebRequest, WebToNativeRequest>> {
+	private async init(webContents: WebContents): Promise<IWebauthn> {
 		const deferred = defer<void>()
 
 		const transport = new ElectronNativeTransport(webContents, this.centralIpcHandler)
@@ -63,43 +62,59 @@ export class DesktopWebauthnController implements INativeWebauthnController {
 			}
 		})
 		await deferred.promise
-		return dispatcher
+		return exposeRemote<{webauthn: IWebauthn}>(req => dispatcher.postRequest(req)).webauthn
 	}
 
 	private async uninint(webContents: WebContents) {
 		this.centralIpcHandler.removeHandler(webContents.id)
 	}
 
-	async register(domain: string, userId: Id, name: string, mailAddress: string): Promise<U2fRegisteredDevice> {
-		const {bw, dispatcher} = await this.createBrowserWindow(domain)
+	async register(challenge: WebAuthnChallenge): Promise<{credential: PublicKeyCredential, rpId: string}> {
+		// TODO:
+		const domain = "https://local.tutanota.com:9000/client/build"
+		const {bw, webauthn} = await this.createBrowserWindow(domain)
 
 		const closeDefer = defer<never>()
 		bw.on("close", () => {
 			closeDefer.reject(new CancelledError("Window closed"))
 		})
 		const response = await Promise.race([
-			dispatcher.postRequest(new Request("register", [userId, name, mailAddress])),
+			webauthn.register(challenge),
 			closeDefer.promise
 		])
-		bw.close()
+		//bw.close()
 		console.log("registered", bw.webContents.id)
 		return response
 	}
 
-	async sign(domain: string, challenge: U2fChallenge): Promise<WebauthnResponseData> {
-		const {bw, dispatcher} = await this.createBrowserWindow(domain)
+	async sign(challenge: Uint8Array, keys: Array<PublicKeyCredentialDescriptor>): Promise<PublicKeyCredential> {
+		// TODO:
+		const domain = "https://local.tutanota.com:9000/client/build"
+		const {bw, webauthn} = await this.createBrowserWindow(domain)
 
 		const closeDefer = defer<never>()
 		bw.on("close", () => {
 			closeDefer.reject(new CancelledError("Window closed"))
 		})
 		const response = await Promise.race([
-			dispatcher.postRequest(new Request("authenticate", [challenge])),
+			webauthn.sign(challenge, keys),
 			closeDefer.promise
 		])
 		bw.close()
 		console.log("authenticated", bw.webContents.id)
 		return response
+	}
+
+	canAttemptChallengeForRpId(rpId: string): boolean {
+		return true
+	}
+
+	canAttemptChallengeForU2FAppId(appId: string): boolean {
+		return true
+	}
+
+	isSupported(): boolean {
+		return true
 	}
 
 	private async createBrowserWindow(domain: string) {
@@ -110,9 +125,11 @@ export class DesktopWebauthnController implements INativeWebauthnController {
 			width: 800,
 			height: 800,
 			webPreferences: {
-				preload: path.join(app.getAppPath(), "./desktop/preload-webauthn.js")
+				preload: path.join(app.getAppPath(), "./desktop/preload-webauthn.js"),
+
 			}
 		})
+		bw.webContents.openDevTools()
 		const url = new URL(domain + "/webauthn")
 		console.log("webauthn url", url.toString())
 
@@ -120,6 +137,6 @@ export class DesktopWebauthnController implements INativeWebauthnController {
 		const dispatcher = await this.init(bw.webContents)
 		console.log("initialized for bw", bw.webContents.id)
 		bw.webContents.on("destroyed", () => this.uninint(bw.webContents))
-		return {bw, dispatcher}
+		return {bw, webauthn: dispatcher}
 	}
 }
