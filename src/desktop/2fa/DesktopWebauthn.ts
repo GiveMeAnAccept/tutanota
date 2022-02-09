@@ -72,10 +72,13 @@ export class DesktopWebauthn implements IWebauthn {
 	private async createBrowserWindow(domain: string) {
 		// TODO: this needs proper settings
 		// TODO: this should be a modal window (pass parent window to it somehow)
+		const active = BrowserWindow.getFocusedWindow()
+
 		const bw = new BrowserWindow({
-			center: true,
-			width: 800,
-			height: 800,
+			parent: active ?? undefined,
+			modal: true,
+			width: 400,
+			height: 200,
 			autoHideMenuBar: true,
 			webPreferences: {
 				nodeIntegration: false,
@@ -99,7 +102,6 @@ export class DesktopWebauthn implements IWebauthn {
 				spellcheck: false,
 			},
 		})
-		bw.webContents.openDevTools()
 		const url = new URL(domain + "/webauthn")
 		console.log("webauthn url", url.toString())
 
