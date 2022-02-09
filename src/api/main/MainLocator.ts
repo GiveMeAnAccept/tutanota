@@ -43,12 +43,13 @@ import type {NativeInterfaces} from "./NativeInterfaceFactory"
 import {createNativeInterfaces} from "./NativeInterfaceFactory"
 import {ProgrammingError} from "../common/error/ProgrammingError"
 import {SecondFactorHandler} from "../../misc/2fa/SecondFactorHandler"
-import {BrowserWebauthn, IWebauthn, IWebauthnClient, WebauthnClient} from "../../misc/2fa/webauthn/WebauthnClient"
+import {IWebauthnClient, WebauthnClient} from "../../misc/2fa/webauthn/WebauthnClient"
 import {UserManagementFacade} from "../worker/facades/UserManagementFacade"
 import {GroupManagementFacade} from "../worker/facades/GroupManagementFacade"
 import {exposeRemote} from "../common/WorkerProxy"
 import {ExposedNativeInterface} from "../../native/common/NativeInterface"
-import {CredentialsApi} from "../../misc/2fa/webauthn/WebauthnTypes"
+import {IWebauthn} from "../../misc/2fa/webauthn/IWebauthn.js"
+import {BrowserWebauthn} from "../../misc/2fa/webauthn/BrowserWebauthn.js"
 
 assertMainOrNode()
 
@@ -143,7 +144,7 @@ class MainLocator implements IMainLocator {
 	}
 
 	get webauthnController(): IWebauthn {
-		const creds = navigator.credentials as CredentialsApi
+		const creds = navigator.credentials
 		return isDesktop()
 			? exposeRemote<ExposedNativeInterface>((msg) => this.native.invokeNative(msg)).webauthnController
 			: new BrowserWebauthn(creds, window.location.hostname)

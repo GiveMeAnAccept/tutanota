@@ -1,12 +1,8 @@
 import type {CurrentView} from "../gui/base/Header.js"
 import type {Children, Vnode} from "mithril"
 import m from "mithril"
-import {IWebauthn, WebauthnClient} from "../misc/2fa/webauthn/WebauthnClient"
 import type {WebauthnNativeBridge} from "../native/main/WebauthnNativeBridge"
-import {U2fRegisteredDevice} from "../api/entities/sys/U2fRegisteredDevice"
-import {U2fChallenge} from "../api/entities/sys/U2fChallenge"
-import {WebauthnResponseData} from "../api/entities/sys/WebauthnResponseData"
-import {PublicKeyCredential} from "../misc/2fa/webauthn/WebauthnTypes"
+import {IWebauthn} from "../misc/2fa/webauthn/IWebauthn.js"
 
 const enum State {
 	None,
@@ -63,17 +59,5 @@ export class NativeWebauthnView implements CurrentView {
 			case State.Registering:
 				return "registering"
 		}
-	}
-
-	// @ts-ignore
-	private async doRegister(challenge, id, name, displayName): Promise<{credential: PublicKeyCredential, rpId: string}> {
-		const registered = await this.webauthn.register(challenge, id, name, displayName)
-		console.log("registered", registered)
-		return registered
-	}
-
-	// @ts-ignore
-	private doSign(challenge, keys): Promise<PublicKeyCredential> {
-		return this.webauthn.sign(challenge, keys)
 	}
 }

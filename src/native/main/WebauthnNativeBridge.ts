@@ -1,10 +1,7 @@
 import {Commands, MessageDispatcher, Request} from "../../api/common/MessageDispatcher.js"
 import {DesktopTransport} from "./NativeInterfaceMain.js"
-import {U2fRegisteredDevice} from "../../api/entities/sys/U2fRegisteredDevice.js"
-import {U2fChallenge} from "../../api/entities/sys/U2fChallenge"
-import {WebauthnResponseData} from "../../api/entities/sys/WebauthnResponseData"
-import {IWebauthn} from "../../misc/2fa/webauthn/WebauthnClient"
 import {exposeLocal} from "../../api/common/WorkerProxy"
+import {IWebauthn} from "../../misc/2fa/webauthn/IWebauthn"
 
 export type WebToNativeRequest = "init"
 export type NativeToWebRequest = "facade"

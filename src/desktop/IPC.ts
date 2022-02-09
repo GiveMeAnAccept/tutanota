@@ -29,7 +29,7 @@ import {Logger} from "../api/common/Logger"
 import {DektopCredentialsEncryption} from "./credentials/DektopCredentialsEncryption"
 import {exposeLocal} from "../api/common/WorkerProxy"
 import {ExposedNativeInterface} from "../native/common/NativeInterface"
-import {IWebauthn} from "../misc/2fa/webauthn/WebauthnClient"
+import {IWebauthn} from "../misc/2fa/webauthn/IWebauthn.js"
 
 /**
  * node-side endpoint for communication between the renderer threads and the node thread

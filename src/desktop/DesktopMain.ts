@@ -2,7 +2,7 @@ import {mp} from "./DesktopMonkeyPatch"
 import {err} from "./DesktopErrorHandler"
 import {DesktopConfig} from "./config/DesktopConfig"
 import * as electron from "electron"
-import {app} from "electron"
+import {app, ipcMain} from "electron"
 import {DesktopUtils} from "./DesktopUtils"
 import {IPC} from "./IPC"
 import {WindowManager} from "./DesktopWindowManager"
@@ -37,7 +37,8 @@ import {DateProviderImpl} from "../calendar/date/CalendarUtils"
 import {ThemeManager} from "./ThemeManager"
 import {BuildConfigKey, DesktopConfigKey} from "./config/ConfigKeys";
 import {DektopCredentialsEncryption, DesktopCredentialsEncryptionImpl} from "./credentials/DektopCredentialsEncryption"
-import {DesktopWebauthnController} from "./2fa/DesktopWebauthnController.js"
+import {DesktopWebauthn, webauthnIpcConfig, WebauthnIpcHandler} from "./2fa/DesktopWebauthn.js"
+import {CentralIpcHandler} from "./ipc/CentralIpcHandler.js"
 
 mp()
 type Components = {
@@ -120,7 +121,8 @@ async function createComponents(): Promise<Components> {
 		log.error("Could not reschedule alarms", e)
 		return sse.resetStoredState()
 	})
-	const webauthnController = new DesktopWebauthnController()
+	const webauthnIpcHandler: WebauthnIpcHandler = new CentralIpcHandler(ipcMain, webauthnIpcConfig)
+	const webauthnController = new DesktopWebauthn(webauthnIpcHandler)
 	tray.setWindowManager(wm)
 	const sse = new DesktopSseClient(app, conf, notifier, wm, desktopAlarmScheduler, desktopNet, desktopCrypto, alarmStorage, lang)
 	// It should be ok to await this, all we are waiting for is dynamic imports
