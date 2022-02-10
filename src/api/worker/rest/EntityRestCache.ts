@@ -17,7 +17,7 @@ import type {EntityUpdate} from "../../entities/sys/EntityUpdate"
 import {RejectedSenderTypeRef} from "../../entities/sys/RejectedSender"
 import {firstBiggerThanSecond, GENERATED_MAX_ID, GENERATED_MIN_ID, getElementId, getLetId} from "../../common/utils/EntityUtils";
 import {ProgrammingError} from "../../common/error/ProgrammingError"
-import {assertWorkerOrNode} from "../../common/Env"
+import {assertWorkerOrNode, isDesktop} from "../../common/Env"
 import type {ListElementEntity, SomeEntity} from "../../common/EntityTypes"
 import {EntityUpdateData} from "../../main/EventController"
 import {QueuedBatch} from "../search/EventQueue"
@@ -106,7 +106,7 @@ export interface CacheStorage {
 
 export function isUsingOfflineCache() {
 	// TODO : we disabled this code path while developing so changes can already be merged into master
-	return false
+	return isDesktop()
 }
 
 /**

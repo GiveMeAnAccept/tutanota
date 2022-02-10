@@ -6,8 +6,16 @@ import {UserTypeRef} from "../../../../src/api/entities/sys/User"
 import {concat, stringToUtf8Uint8Array} from "@tutao/tutanota-utils"
 import {calendarGroupId} from "../../calendar/CalendarTestUtils"
 import * as cborg from "cborg"
+import * as fs from "fs"
+import {assertThrows} from "@tutao/tutanota-test-utils"
 //in-memory database
-const inMemoryDataBaseFile = ":memory:"
+// const database = ":memory:"
+const database = "./testdatabase.sqlite"
+
+export const offlineDatabaseTestKey = new Uint8Array(new Array(32).fill(42))
+
+// Added by sqliteNativeBannerPlugin
+const nativePath = globalThis.buildOptions.sqliteNativePath
 
 o.spec("Offline DB ", function () {
 	let db: OfflineDb
@@ -18,13 +26,12 @@ o.spec("Offline DB ", function () {
 	const id3 = "---------id3"
 
 	o.beforeEach(async function () {
-		// Added by sqliteNativeBannerPlugin
-		const nativePath = globalThis.buildOptions.sqliteNativePath
 		db = new OfflineDb(nativePath)
-		await db.init(inMemoryDataBaseFile)
+		await db.init(database, offlineDatabaseTestKey)
 	})
 	o.afterEach(async function () {
 		await db.closeDb()
+		fs.rmSync("./testdatabase.sqlite")
 	})
 
 	o.spec("test put", function () {
@@ -296,6 +303,44 @@ o.spec("Offline DB ", function () {
 		const receivedEntity = await db.getMetadata("lastUpdateTime")
 		const decode = receivedEntity ? cborg.decode(receivedEntity) : null
 		o(decode).deepEquals(date)
+	})
+	o.spec("Test encryption", function () {
+		o("can create new database", async function () {
+			//save something
+			const date = new Date().getTime()
+			const value = cborg.encode(date)
+			await db.putMetadata("lastUpdateTime", value)
+			const receivedEntity = await db.getMetadata("lastUpdateTime")
+			const decode = receivedEntity ? cborg.decode(receivedEntity) : null
+			o(decode).deepEquals(date)
+		})
+
+		o("can open existing database", async function () {
+			//save something
+			const date = new Date().getTime()
+			const value = cborg.encode(date)
+			await db.putMetadata("lastUpdateTime", value)
+			await db.closeDb()
+
+			db = new OfflineDb(nativePath)
+			await db.init(database, offlineDatabaseTestKey)
+
+			const receivedEntity = await db.getMetadata("lastUpdateTime")
+			const decode = receivedEntity ? cborg.decode(receivedEntity) : null
+			o(decode).deepEquals(date)
+		})
+
+		o("can't read from existing database if password is wrong", async function () {
+			//save something
+			const date = new Date().getTime()
+			const value = cborg.encode(date)
+			await db.putMetadata("lastUpdateTime", value)
+			await db.closeDb()
+
+			db = new OfflineDb(nativePath)
+			const theWrongKey = new Uint8Array(Array.from(offlineDatabaseTestKey).map(b => b*b))
+			await assertThrows(Error, () => db.init(database, theWrongKey))
+		})
 	})
 })
 

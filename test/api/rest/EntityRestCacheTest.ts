@@ -19,6 +19,7 @@ import {createPermission, PermissionTypeRef} from "../../../src/api/entities/sys
 import {OfflineStorage} from "../../../src/api/worker/rest/OfflineStorage"
 import {EphemeralCacheStorage} from "../../../src/api/worker/rest/EphemeralCacheStorage"
 import {QueuedBatch} from "../../../src/api/worker/search/EventQueue"
+import {offlineDatabaseTestKey} from "../../client/desktop/db/OfflineDbTest"
 
 type UserIdProvider = () => Id | null
 
@@ -30,7 +31,7 @@ async function getOfflineStorage(userIdProvider: UserIdProvider): Promise<CacheS
 		// Added by sqliteNativeBannerPlugin
 		const nativePath = globalThis.buildOptions.sqliteNativePath
 		const db = new OfflineDb(nativePath)
-		await db.init(":memory:")
+		await db.init(":memory:", offlineDatabaseTestKey)
 		return db
 	}
 	const offlineDbFacade = new OfflineDbFacade(offlineDbFactory)

@@ -138,7 +138,8 @@ async function createComponents(): Promise<Components> {
 	const offlineDbFactory = async (userId: Id) => {
 		const db = new OfflineDb(buildOptions.sqliteNativePath)
 		const dbPath = path.join(app.getPath("userData"), `offline_${userId}.sqlite`)
-		await db.init(dbPath)
+		const key = (function() { throw new Error("TODO!!!")})()
+		await db.init(dbPath, key)
 		return db
 	}
 

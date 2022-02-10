@@ -14,6 +14,8 @@ import stream from "stream"
  * @returns string path to .node for built better-sqlite3
  */
 export async function getSqliteNativeModulePath(environment, rootDir, log) {
+	return path.join(rootDir, "node_modules/better-sqlite3/build/Release/better_sqlite3.node")
+
 	const dir = path.join(rootDir, "native-cache", environment)
 	await fs.promises.mkdir(dir, {recursive: true})
 
@@ -57,6 +59,8 @@ async function rebuild(environment, rootDir, electronVersion, log) {
 			"rebuild",
 			"--release",
 			"--build-from-source",
+			// "--sqlite3=/home/jom/dev/repositories/sqlcipher/build",
+			// "-I/home/jom/dev/repositories/sqlcipher/build",
 			`--arch=${process.arch}`,
 			...(
 				environment === "electron"

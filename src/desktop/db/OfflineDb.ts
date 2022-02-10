@@ -1,5 +1,6 @@
 import {Database, default as sqlite} from "better-sqlite3"
 import {firstBiggerThanSecond} from "../../api/common/utils/EntityUtils"
+import {assert, uint8ArrayToBase64} from "@tutao/tutanota-utils"
 
 export interface PersistedEntity {
 	type: string,
@@ -66,8 +67,9 @@ export class OfflineDb {
 	) {
 	}
 
-	async init(dbPath: string) {
+	async init(dbPath: string, databaseKey: Uint8Array) {
 		await this.openDatabase(dbPath)
+		await this.setDatabaseKey(databaseKey)
 		await this.createTables()
 	}
 
@@ -79,6 +81,20 @@ export class OfflineDb {
 			// 	console.log("DB", message, args)
 			// }
 		})
+	}
+
+	private async setDatabaseKey(databaseKey: Uint8Array) {
+
+		assert(databaseKey.length === 32, "The provided key is not 256bits")
+		const b64 = `x'${uint8ArrayToBase64(databaseKey)};`
+
+		this.db.pragma(`KEY = "${b64}"`)
+		this.db.pragma("CIPHER = 'aes-128-cbc'");
+		this.db.pragma("CIPHER_PAGE_SIZE = 1024");
+		this.db.pragma("KDF_ITER = 64000");
+		this.db.pragma("CIPHER_KDF_ALGORITHM = PBKDF2_HMAC_SHA256");
+		this.db.pragma("CIPHER_HMAC_ALGORITHM = HMAC_SHA256");
+		this.db.pragma("CIPHER_PLAINTEXT_HEADER_SIZE = 0");
 	}
 
 	private async createTables() {
@@ -175,10 +191,10 @@ export class OfflineDb {
 
 	async delete(type: string, listId: string | null, elementId: string): Promise<void> {
 		if (listId == null) {
-			this.db.prepare("DELETE FROM element_entities WHERE type = :type AND elementId = :elementId LIMIT 1")
+			this.db.prepare("DELETE FROM element_entities WHERE type = :type AND elementId = :elementId6")
 				.run({type, elementId})
 		} else {
-			this.db.prepare("DELETE FROM list_entities WHERE type = :type AND listId = :listId AND elementId = :elementId LIMIT 1")
+			this.db.prepare("DELETE FROM list_entities WHERE type = :type AND listId = :listId AND elementId = :elementId")
 				.run({type, listId, elementId})
 		}
 	}
@@ -211,7 +227,6 @@ export class OfflineDb {
 		this.db.prepare("INSERT OR REPLACE INTO metadata VALUES (:key,:value)")
 			.run({key, value})
 	}
-
 
 }
 
