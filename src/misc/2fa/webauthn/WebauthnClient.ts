@@ -1,13 +1,13 @@
 import {decode} from "cborg"
-import {downcast} from "@tutao/tutanota-utils"
-import type {U2fRegisteredDevice} from "../../../api/entities/sys/U2fRegisteredDevice"
-import {createU2fRegisteredDevice} from "../../../api/entities/sys/U2fRegisteredDevice"
-import type {U2fChallenge} from "../../../api/entities/sys/U2fChallenge"
-import type {WebauthnResponseData} from "../../../api/entities/sys/WebauthnResponseData"
-import {createWebauthnResponseData} from "../../../api/entities/sys/WebauthnResponseData"
-import {TutanotaError} from "../../../api/common/error/TutanotaError"
+import {assert, downcast, firstThrow} from "@tutao/tutanota-utils"
+import type {U2fRegisteredDevice} from "../../../api/entities/sys/U2fRegisteredDevice.js"
+import {createU2fRegisteredDevice} from "../../../api/entities/sys/U2fRegisteredDevice.js"
+import type {U2fChallenge} from "../../../api/entities/sys/U2fChallenge.js"
+import type {WebauthnResponseData} from "../../../api/entities/sys/WebauthnResponseData.js"
+import {createWebauthnResponseData} from "../../../api/entities/sys/WebauthnResponseData.js"
 import type {IWebauthn} from "./IWebauthn.js"
-import {getWebRoot} from "../../../api/common/Env.js"
+import {U2F_APPID, U2f_APPID_SUFFIX, WEBAUTHN_RP_ID} from "./IWebauthn.js"
+import {U2fKey} from "../../../api/entities/sys/U2fKey.js"
 
 /** Web authentication entry point for the rest of the app. */
 export interface IWebauthnClient {
@@ -22,12 +22,10 @@ export interface IWebauthnClient {
 }
 
 export class WebauthnClient implements IWebauthnClient {
-	private readonly domain: string
-
 	constructor(
-		private readonly webauthn: IWebauthn
+		private readonly webauthn: IWebauthn,
+		private readonly clientWebRoot: string,
 	) {
-		this.domain = getWebRoot()
 	}
 
 	isSupported(): boolean {
@@ -41,7 +39,7 @@ export class WebauthnClient implements IWebauthnClient {
 	async register(userId: Id, displayName: string, mailAddress: string, signal: AbortSignal): Promise<U2fRegisteredDevice> {
 		const challenge = this.getChallenge()
 		const name = `${userId} ${mailAddress} ${displayName}`
-		const registrationResult = await this.webauthn.register({challenge, userId, name, displayName, domain: this.domain})
+		const registrationResult = await this.webauthn.register({challenge, userId, name, displayName, domain: this.clientWebRoot})
 		const attestationObject = this.parseAttestationObject(registrationResult.attestationObject)
 		const publicKey = this.parsePublicKey(downcast(attestationObject).authData)
 
@@ -62,10 +60,11 @@ export class WebauthnClient implements IWebauthnClient {
 				type: "public-key",
 			}
 		})
+
 		const signResult = await this.webauthn.sign({
 			challenge: challenge.challenge,
 			keys: allowedKeys,
-			domain: this.domain
+			domain: this.selectAuthenticationUrl(challenge)
 		})
 
 		return createWebauthnResponseData({
@@ -74,6 +73,41 @@ export class WebauthnClient implements IWebauthnClient {
 			signature: new Uint8Array(signResult.signature),
 			authenticatorData: new Uint8Array(signResult.authenticatorData),
 		})
+	}
+
+	private selectAuthenticationUrl(challenge: U2fChallenge): string {
+		// We need to figure our for which page we need to open authentication based on the keys that user has added because users can register keys for our
+		// domains as well as for whitelabel domains.
+
+		let selectedClientUrl
+		if (challenge.keys.some(k => k.appId === WEBAUTHN_RP_ID)) {
+			// First, if we find our own key then open web client on our URL.
+			// Even if it's a different subdomain of ours it can still match because it is scoped for all tutanota.com subdomains
+			selectedClientUrl = this.clientWebRoot
+		} else {
+			// If it isn't there, look for any Webauthn key. Legacy U2F key ids ends with json subpath.
+			const webauthnKey = challenge.keys.find(k => !this.isLegacyU2fKey(k))
+			if (webauthnKey) {
+				selectedClientUrl = `https://${webauthnKey.appId}`
+			} else if (challenge.keys.some(k => k.appId === U2F_APPID)) {
+				// There are only legacy U2F keys but there is one for our domain, take it
+				selectedClientUrl = this.clientWebRoot
+			} else {
+				// Nothing else worked, select legacy U2F key for whitelabel domain
+				selectedClientUrl = this.legacyU2fKeyToBaseUrl(firstThrow(challenge.keys))
+			}
+		}
+		return selectedClientUrl
+	}
+
+	private isLegacyU2fKey(key: U2fKey): boolean {
+		return key.appId.endsWith(U2f_APPID_SUFFIX)
+	}
+
+	private legacyU2fKeyToBaseUrl(key: U2fKey): string {
+		assert(this.isLegacyU2fKey(key), "Is not a legacy u2f key")
+
+		return key.appId.slice(0, -(U2f_APPID_SUFFIX.length))
 	}
 
 	private getChallenge(): Uint8Array {
@@ -115,17 +149,5 @@ export class WebauthnClient implements IWebauthnClient {
 		encoded.set(x, 1)
 		encoded.set(y, 33)
 		return encoded
-	}
-}
-
-export class WebauthnError extends TutanotaError {
-	constructor(error: Error) {
-		super("WebauthnUnrecoverableError", `${error.name} ${String(error)}`)
-	}
-}
-
-export class WebauthnCancelledError extends TutanotaError {
-	constructor(error: Error) {
-		super("WebauthnCancelledError", `${error.name} ${String(error)}`)
 	}
 }

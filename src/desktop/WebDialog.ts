@@ -1,12 +1,13 @@
-import {app, BrowserWindow, WebContents} from "electron"
+import {app, BrowserWindow, ipcMain, WebContents} from "electron"
 import path from "path"
 import {defer} from "@tutao/tutanota-utils"
-import {ElectronWebContentsTransport} from "./ipc/ElectronWebContentsTransport"
-import {NativeToWebRequest, WebToNativeRequest} from "../native/main/WebauthnNativeBridge"
-import {MessageDispatcher} from "../api/common/MessageDispatcher"
-import {exposeRemote} from "../api/common/WorkerProxy"
-import {CancelledError} from "../api/common/error/CancelledError"
-import {CentralIpcHandler, IpcConfig} from "./ipc/CentralIpcHandler"
+import {ElectronWebContentsTransport} from "./ipc/ElectronWebContentsTransport.js"
+import {NativeToWebRequest, WebToNativeRequest} from "../native/main/WebauthnNativeBridge.js"
+import {MessageDispatcher} from "../api/common/MessageDispatcher.js"
+import {exposeRemote} from "../api/common/WorkerProxy.js"
+import {CancelledError} from "../api/common/error/CancelledError.js"
+import {CentralIpcHandler} from "./ipc/CentralIpcHandler.js"
+import {register} from "./electron-localshortcut/LocalShortcut.js"
 
 /**
  * a browserWindow wrapper that
@@ -14,42 +15,69 @@ import {CentralIpcHandler, IpcConfig} from "./ipc/CentralIpcHandler"
  * * installs a nativeBrigde
  * * sends a request to the webContents
  * * returns the result of the call
- *
- * TODO: make this work with the default preload.js and make it possible to filter the messages it should handle
  */
 
-export class WebDialog {
+export interface IWebDialog {
+	show<RemoteInterfaceType, ResponseType>(
+		urlToOpen: URL,
+		requestSender: (remote: RemoteInterfaceType) => Promise<ResponseType>,
+	): Promise<ResponseType>
+}
 
-	private constructor() {
+export const webauthnIpcConfig = Object.freeze({
+	renderToMainEvent: "to-main-webdialog",
+	mainToRenderEvent: "to-renderer-webdialog"
+})
+
+export type WebDialogIpcConfig = typeof webauthnIpcConfig
+export type WebDialogIpcHandler = CentralIpcHandler<WebDialogIpcConfig>
+
+// Singleton
+export const webauthnIpcHandler: WebDialogIpcHandler = new CentralIpcHandler(ipcMain, webauthnIpcConfig)
+
+export class WebDialog implements IWebDialog {
+	constructor(
+		private readonly ipcHandler: WebDialogIpcHandler
+	) {
 	}
 
-	static async show<IpcConfigType extends IpcConfig<string, string>,
-		FacadeType, ResponseType>(
+	async show<FacadeType, ResponseType>(
 		urlToOpen: URL,
-		dispatcher: CentralIpcHandler<IpcConfigType>,
 		requestSender: (facade: FacadeType) => Promise<ResponseType>,
 	): Promise<ResponseType> {
-		const bw = await WebDialog.createBrowserWindow()
+		const bw = await this.createBrowserWindow()
 		const closeDefer = defer<never>()
-		bw.on("close", () => {
+		bw.on("closed", () => {
+			console.log("web dialog window closed")
 			closeDefer.reject(new CancelledError("Window closed"))
 		})
-		bw.webContents.openDevTools()
+
+		register(bw, "F12", () => {
+			bw.webContents.openDevTools()
+		})
+
 		bw.once('ready-to-show', () => bw.show())
 		await bw.loadURL(urlToOpen.toString())
-		const facade = await WebDialog.initRemoteWebauthn<FacadeType, IpcConfigType>(bw.webContents, dispatcher)
-		console.log("initialized for bw", bw.webContents.id)
-		bw.webContents.on("destroyed", () => WebDialog.uninitRemoteWebauthn(bw.webContents, dispatcher))
 
-		return Promise.race([
-			closeDefer.promise,
-			requestSender(facade)
-		]).finally(() => bw.close())
+		const facade = await this.initRemoteWebauthn<FacadeType>(bw.webContents)
+
+		bw.webContents.on("destroyed", () => this.uninitRemoteWebauthn(bw.webContents))
+
+		return Promise
+			.race([
+				closeDefer.promise,
+				requestSender(facade)
+			])
+			.catch((e) => {
+				console.log("web dialog error!", e)
+				throw e
+			})
+			.finally(() => {
+				if (!bw.isDestroyed()) bw.close()
+			})
 	}
 
-	private static async createBrowserWindow() {
-		// TODO: this needs proper settings
-		// TODO: this should be a modal window (pass parent window to it somehow)
+	private async createBrowserWindow() {
 		const active = BrowserWindow.getFocusedWindow()
 
 		return new BrowserWindow({
@@ -89,10 +117,9 @@ export class WebDialog {
 		})
 	}
 
-	private static async initRemoteWebauthn<FacadeType,
-		IpcConfigType extends IpcConfig<string, string>>(webContents: WebContents, handler: CentralIpcHandler<IpcConfigType>): Promise<FacadeType> {
+	async initRemoteWebauthn<FacadeType>(webContents: WebContents): Promise<FacadeType> {
 		const deferred = defer<void>()
-		const transport = new ElectronWebContentsTransport<IpcConfigType, "facade", "init">(webContents, handler)
+		const transport = new ElectronWebContentsTransport<WebDialogIpcConfig, "facade", "init">(webContents, this.ipcHandler)
 		const dispatcher = new MessageDispatcher<NativeToWebRequest, WebToNativeRequest>(transport, {
 			"init": () => {
 				deferred.resolve()
@@ -103,8 +130,7 @@ export class WebDialog {
 		return exposeRemote<FacadeType>(req => dispatcher.postRequest(req))
 	}
 
-	private static async uninitRemoteWebauthn(webContents: WebContents, handler: CentralIpcHandler<IpcConfig<string, string>>) {
-		handler.removeHandler(webContents.id)
+	private async uninitRemoteWebauthn(webContents: WebContents) {
+		this.ipcHandler.removeHandler(webContents.id)
 	}
-
 }

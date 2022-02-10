@@ -6,41 +6,26 @@ import {
 	WebAuthnSignChallenge,
 	WebauthnSignResult
 } from "../../misc/2fa/webauthn/IWebauthn.js"
-import type {CentralIpcHandler} from "../ipc/CentralIpcHandler.js"
-import {WebDialog} from "../WebDialog.js"
-
-export const webauthnIpcConfig = Object.freeze({
-	renderToMainEvent: "to-main-webauthn",
-	mainToRenderEvent: "to-renderer-webauthn"
-})
-export type WebauthnIpcConfig = typeof webauthnIpcConfig
-export type WebauthnIpcHandler = CentralIpcHandler<WebauthnIpcConfig>
+import type {IWebDialog} from "../WebDialog.js"
 
 export class DesktopWebauthn implements IWebauthn {
-
-	constructor(private readonly centralIpcHandler: WebauthnIpcHandler) {
+	constructor(private readonly webDialog: IWebDialog) {
 	}
 
 	async register(challenge: WebAuthnRegistrationChallenge): Promise<WebauthnRegistrationResult> {
 		const {domain} = challenge
-		const response = await WebDialog.show<WebauthnIpcConfig, ExposedWebauthnInterface, WebauthnRegistrationResult>(
+		return this.webDialog.show<ExposedWebauthnInterface, WebauthnRegistrationResult>(
 			new URL(domain + "/webauthn"),
-			this.centralIpcHandler,
-			facade => facade.webauthn.register(challenge)
+			(remote) => remote.webauthn.register(challenge)
 		)
-		console.log("registered")
-		return response
 	}
 
 	async sign(challenge: WebAuthnSignChallenge): Promise<WebauthnSignResult> {
 		const {domain} = challenge
-		const response = await WebDialog.show<WebauthnIpcConfig, ExposedWebauthnInterface, WebauthnSignResult>(
+		return this.webDialog.show<ExposedWebauthnInterface, WebauthnSignResult>(
 			new URL(domain + "/webauthn"),
-			this.centralIpcHandler,
-			facade => facade.webauthn.sign(challenge)
+			(remote) => remote.webauthn.sign(challenge)
 		)
-		console.log("authenticated")
-		return response
 	}
 
 	canAttemptChallengeForRpId(rpId: string): boolean {

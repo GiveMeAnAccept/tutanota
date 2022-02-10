@@ -1,18 +1,18 @@
-import {SecondFactorType} from "../../api/common/TutanotaConstants"
+import {SecondFactorType} from "../../api/common/TutanotaConstants.js"
 import type {Thunk} from "@tutao/tutanota-utils"
 import {assertNotNull} from "@tutao/tutanota-utils"
-import type {TranslationKey} from "../LanguageViewModel"
-import {createSecondFactorAuthData} from "../../api/entities/sys/SecondFactorAuthData"
-import {AccessBlockedError, BadRequestError, NotAuthenticatedError} from "../../api/common/error/RestError"
-import {Dialog} from "../../gui/base/Dialog"
+import type {TranslationKey} from "../LanguageViewModel.js"
+import {createSecondFactorAuthData} from "../../api/entities/sys/SecondFactorAuthData.js"
+import {AccessBlockedError, BadRequestError, NotAuthenticatedError} from "../../api/common/error/RestError.js"
+import {Dialog} from "../../gui/base/Dialog.js"
 import m from "mithril"
-import {SecondFactorAuthView} from "./SecondFactorAuthView"
-import {IWebauthnClient, WebauthnCancelledError, WebauthnClient, WebauthnError} from "./webauthn/WebauthnClient"
-import {appIdToLoginDomain} from "./SecondFactorHandler"
-import type {Challenge} from "../../api/entities/sys/Challenge"
-import type {LoginFacade} from "../../api/worker/facades/LoginFacade"
-import {isDesktop} from "../../api/common/Env"
-import {locator} from "../../api/main/MainLocator"
+import {SecondFactorAuthView} from "./SecondFactorAuthView.js"
+import {IWebauthnClient} from "./webauthn/WebauthnClient.js"
+import type {Challenge} from "../../api/entities/sys/Challenge.js"
+import type {LoginFacade} from "../../api/worker/facades/LoginFacade.js"
+import {isDesktop} from "../../api/common/Env.js"
+import {CancelledError} from "../../api/common/error/CancelledError.js"
+import {WebauthnError} from "../../api/common/error/WebauhnError.js"
 
 type AuthData = {
 	readonly sessionId: IdTuple
@@ -20,16 +20,10 @@ type AuthData = {
 	readonly mailAddress: string | null
 }
 type WebauthnState =
-	| {
-	state: "init"
-}
-	| {
-	state: "progress"
-}
-	| {
-	state: "error"
-	error: TranslationKey
-}
+	| {state: "init"}
+	| {state: "progress"}
+	| {state: "error", error: TranslationKey}
+
 type OtpState = {
 	code: string
 	inProgress: boolean
@@ -200,7 +194,7 @@ export class SecondFactorAuthDialog {
 			})
 			await this._loginFacade.authenticateWithSecondFactor(authData)
 		} catch (e) {
-			if (e instanceof WebauthnCancelledError) {
+			if (e instanceof CancelledError) {
 				this._webauthnAbortController = null
 				this.webauthnState = {
 					state: "init",

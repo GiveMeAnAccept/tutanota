@@ -1,9 +1,18 @@
 import {COSEAlgorithmIdentifierNames,} from "./WebauthnTypes.js"
-import {WebauthnCancelledError, WebauthnError} from "./WebauthnClient.js"
 import {ProgrammingError} from "../../../api/common/error/ProgrammingError.js"
 import {getHttpOrigin} from "../../../api/common/Env.js"
-import {IWebauthn, WebAuthnRegistrationChallenge, WebauthnRegistrationResult, WebAuthnSignChallenge, WebauthnSignResult} from "./IWebauthn.js"
+import {
+	IWebauthn,
+	U2F_APPID, U2f_APPID_SUFFIX,
+	WEBAUTHN_RP_ID,
+	WebAuthnRegistrationChallenge,
+	WebauthnRegistrationResult,
+	WebAuthnSignChallenge,
+	WebauthnSignResult
+} from "./IWebauthn.js"
 import {stringToUtf8Uint8Array} from "@tutao/tutanota-utils"
+import {CancelledError} from "../../../api/common/error/CancelledError.js"
+import {WebauthnError} from "../../../api/common/error/WebauhnError.js"
 
 const WEBAUTHN_TIMEOUT_MS = 60000
 
@@ -99,7 +108,7 @@ export class BrowserWebauthn implements IWebauthn {
 			})
 		} catch (e) {
 			if (e.name === "AbortError") {
-				throw new WebauthnCancelledError(e)
+				throw new CancelledError(e)
 			} else {
 				throw new WebauthnError(e)
 			}
@@ -120,18 +129,18 @@ export class BrowserWebauthn implements IWebauthn {
 	}
 
 	private rpIdFromHostname(hostname: string): string {
-		if (hostname.endsWith("tutanota.com")) {
-			return "tutanota.com"
+		if (hostname.endsWith(WEBAUTHN_RP_ID)) {
+			return WEBAUTHN_RP_ID
 		} else {
 			return hostname
 		}
 	}
 
 	private appidFromHostname(hostname: string): string {
-		if (hostname.endsWith("tutanota.com")) {
-			return "https://tutanota.com/u2f-appid.json"
+		if (hostname.endsWith(WEBAUTHN_RP_ID)) {
+			return U2F_APPID
 		} else {
-			return getHttpOrigin() + "/u2f-appid.json"
+			return getHttpOrigin() + U2f_APPID_SUFFIX
 		}
 	}
 }

@@ -20,6 +20,8 @@ import {DesktopIntegrator} from "../../../src/desktop/integration/DesktopIntegra
 import {DesktopAlarmScheduler} from "../../../src/desktop/sse/DesktopAlarmScheduler";
 import {ThemeManager} from "../../../src/desktop/ThemeManager";
 import {DektopCredentialsEncryption, DesktopCredentialsEncryptionStub} from "../../../src/desktop/credentials/DektopCredentialsEncryption"
+import {object} from "testdouble"
+import {DesktopWebauthn} from "../../../src/desktop/2fa/DesktopWebauthn"
 
 o.spec("IPC tests", function () {
 	const CALLBACK_ID = "to-main"
@@ -236,7 +238,8 @@ o.spec("IPC tests", function () {
 			desktopIntegratorMock,
 			alarmSchedulerMock,
 			themeManagerMock,
-			credentialsEncryption
+			credentialsEncryption,
+			object<DesktopWebauthn>()
 		)
 		o(electronMock.ipcMain.on.callCount).equals(0)
 		ipc.addWindow(WINDOW_ID)
