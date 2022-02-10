@@ -1,8 +1,9 @@
 export interface WebAuthnRegistrationChallenge {
 	challenge: Uint8Array
-	id: string
+	userId: string
 	name: string
 	displayName: string
+	domain: string
 }
 
 /**
@@ -19,6 +20,12 @@ export interface WebauthnRegistrationResult {
 	attestationObject: ArrayBuffer
 }
 
+export interface WebAuthnSignChallenge {
+	challenge: Uint8Array
+	keys: Array<PublicKeyCredentialDescriptor>
+	domain: string
+}
+
 /**
  * Result of Webauthn authentication with hardware key.
  *
@@ -31,6 +38,10 @@ export interface WebauthnSignResult {
 	authenticatorData: ArrayBuffer
 }
 
+export interface ExposedWebauthnInterface {
+	webauthn: IWebauthn
+}
+
 /** Actual web authentication implementation. Should not be used directly. */
 export interface IWebauthn {
 	isSupported(): boolean;
@@ -41,6 +52,6 @@ export interface IWebauthn {
 
 	register(challenge: WebAuthnRegistrationChallenge): Promise<WebauthnRegistrationResult>;
 
-	sign(challenge: Uint8Array, keys: Array<PublicKeyCredentialDescriptor>): Promise<WebauthnSignResult>;
+	sign(challenge: WebAuthnSignChallenge): Promise<WebauthnSignResult>;
 }
 

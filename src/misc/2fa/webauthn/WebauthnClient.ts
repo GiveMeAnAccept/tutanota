@@ -7,6 +7,7 @@ import type {WebauthnResponseData} from "../../../api/entities/sys/WebauthnRespo
 import {createWebauthnResponseData} from "../../../api/entities/sys/WebauthnResponseData"
 import {TutanotaError} from "../../../api/common/error/TutanotaError"
 import type {IWebauthn} from "./IWebauthn.js"
+import {getWebRoot} from "../../../api/common/Env.js"
 
 /** Web authentication entry point for the rest of the app. */
 export interface IWebauthnClient {
@@ -21,9 +22,12 @@ export interface IWebauthnClient {
 }
 
 export class WebauthnClient implements IWebauthnClient {
+	private readonly domain: string
+
 	constructor(
 		private readonly webauthn: IWebauthn
 	) {
+		this.domain = getWebRoot()
 	}
 
 	isSupported(): boolean {
@@ -34,10 +38,10 @@ export class WebauthnClient implements IWebauthnClient {
 		return challenge.keys.some(key => this.webauthn.canAttemptChallengeForRpId(key.appId) || this.webauthn.canAttemptChallengeForU2FAppId(key.appId))
 	}
 
-	async register(userId: Id, name: string, mailAddress: string, signal: AbortSignal): Promise<U2fRegisteredDevice> {
+	async register(userId: Id, displayName: string, mailAddress: string, signal: AbortSignal): Promise<U2fRegisteredDevice> {
 		const challenge = this.getChallenge()
-
-		const registrationResult = await this.webauthn.register({challenge, id: userId, name: `${userId} ${mailAddress} ${name}`, displayName: name})
+		const name = `${userId} ${mailAddress} ${displayName}`
+		const registrationResult = await this.webauthn.register({challenge, userId, name, displayName, domain: this.domain})
 		const attestationObject = this.parseAttestationObject(registrationResult.attestationObject)
 		const publicKey = this.parsePublicKey(downcast(attestationObject).authData)
 
@@ -58,7 +62,11 @@ export class WebauthnClient implements IWebauthnClient {
 				type: "public-key",
 			}
 		})
-		const signResult = await this.webauthn.sign(challenge.challenge, allowedKeys)
+		const signResult = await this.webauthn.sign({
+			challenge: challenge.challenge,
+			keys: allowedKeys,
+			domain: this.domain
+		})
 
 		return createWebauthnResponseData({
 			keyHandle: new Uint8Array(signResult.rawId),

@@ -2,7 +2,7 @@ import {COSEAlgorithmIdentifierNames,} from "./WebauthnTypes.js"
 import {WebauthnCancelledError, WebauthnError} from "./WebauthnClient.js"
 import {ProgrammingError} from "../../../api/common/error/ProgrammingError.js"
 import {getHttpOrigin} from "../../../api/common/Env.js"
-import {IWebauthn, WebAuthnRegistrationChallenge, WebauthnRegistrationResult, WebauthnSignResult} from "./IWebauthn.js"
+import {IWebauthn, WebAuthnRegistrationChallenge, WebauthnRegistrationResult, WebAuthnSignChallenge, WebauthnSignResult} from "./IWebauthn.js"
 import {stringToUtf8Uint8Array} from "@tutao/tutanota-utils"
 
 const WEBAUTHN_TIMEOUT_MS = 60000
@@ -40,13 +40,7 @@ export class BrowserWebauthn implements IWebauthn {
 			!BigInt.polyfilled
 	}
 
-	async register({
-					   challenge,
-					   id,
-					   name,
-					   displayName
-				   }: WebAuthnRegistrationChallenge
-	): Promise<WebauthnRegistrationResult> {
+	async register({challenge, userId, name, displayName}: WebAuthnRegistrationChallenge): Promise<WebauthnRegistrationResult> {
 		const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
 			challenge,
 			rp: {
@@ -54,7 +48,7 @@ export class BrowserWebauthn implements IWebauthn {
 				id: this.rpId,
 			},
 			user: {
-				id: stringToUtf8Uint8Array(id),
+				id: stringToUtf8Uint8Array(userId),
 				name,
 				displayName,
 			},
@@ -84,7 +78,7 @@ export class BrowserWebauthn implements IWebauthn {
 		}
 	}
 
-	async sign(challenge: Uint8Array, keys: Array<PublicKeyCredentialDescriptor>): Promise<WebauthnSignResult> {
+	async sign({challenge, keys}: WebAuthnSignChallenge): Promise<WebauthnSignResult> {
 		const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
 			challenge: challenge,
 			rpId: this.rpId,

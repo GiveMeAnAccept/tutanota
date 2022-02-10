@@ -217,7 +217,7 @@ async function buildAndStartDesktop(log, version) {
 	log("copying preload script")
 	await fs.mkdir("build/desktop", {recursive: true})
 	await fs.copyFile("src/desktop/preload.js", "build/desktop/preload.js")
-	await fs.copyFile("src/desktop/preload-webauthn.js", "build/desktop/preload-webauthn.js")
+	await fs.copyFile("src/desktop/preload-webdialog.js", "build/desktop/preload-webdialog.js")
 
 	log("Bundled desktop client")
 	return [nodeBundleWrapper]
