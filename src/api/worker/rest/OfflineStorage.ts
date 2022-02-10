@@ -130,12 +130,11 @@ export class OfflineStorage implements CacheStorage {
 	}
 
 	async getLastUpdateTime(): Promise<number | null> {
-		const metadata = await this.offlineDbFacade.getMetadata(this.userId, LAST_UPDATE_TIME_META_KEY)
-		return metadata ? cborg.decode(metadata) : null
+		return this.offlineDbFacade.getMetadata(this.userId, LAST_UPDATE_TIME_META_KEY)
 	}
 
 	async putLastUpdateTime(value: number): Promise<void> {
-		await this.offlineDbFacade.putMetadata(this.userId, LAST_UPDATE_TIME_META_KEY, cborg.encode(value))
+		await this.offlineDbFacade.putMetadata(this.userId, LAST_UPDATE_TIME_META_KEY, value)
 	}
 
 	async purgeStorage(): Promise<void> {

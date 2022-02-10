@@ -1,6 +1,11 @@
 import {Database, default as sqlite} from "better-sqlite3"
 import {firstBiggerThanSecond} from "../../api/common/utils/EntityUtils"
 import {assert, uint8ArrayToBase64} from "@tutao/tutanota-utils"
+import * as cborg from "cborg"
+
+export type OfflineDbMeta = {
+	lastUpdateTime: number
+}
 
 export interface PersistedEntity {
 	type: string,
@@ -218,14 +223,17 @@ export class OfflineDb {
 			.run({groupId, batchId})
 	}
 
-	async getMetadata(key: string): Promise<Uint8Array | null> {
-		return this.db.prepare("SELECT value from metadata WHERE key = :key ")
-				   .get({key})?.value ?? null
+	async getMetadata<K extends keyof OfflineDbMeta>(key: K): Promise<OfflineDbMeta[K] | null> {
+		const value = this.db.prepare("SELECT value from metadata WHERE key = :key ")
+						  .get({key})?.value ?? null
+
+		return value && cborg.decode(value)
 	}
 
-	async putMetadata(key: string, value: Uint8Array): Promise<void> {
+	async putMetadata<K extends keyof OfflineDbMeta>(key: K, value: OfflineDbMeta[K]): Promise<void> {
+		const encoded = cborg.encode(value)
 		this.db.prepare("INSERT OR REPLACE INTO metadata VALUES (:key,:value)")
-			.run({key, value})
+			.run({key, encoded})
 	}
 
 }

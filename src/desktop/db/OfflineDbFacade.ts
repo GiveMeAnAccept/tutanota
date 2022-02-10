@@ -1,4 +1,4 @@
-import {OfflineDb, PersistedEntity} from "./OfflineDb"
+import {OfflineDb, OfflineDbMeta, PersistedEntity} from "./OfflineDb"
 import {assertNotNull, getFromMap} from "@tutao/tutanota-utils"
 
 export class OfflineDbFacade {
@@ -59,11 +59,11 @@ export class OfflineDbFacade {
 		return (await this.getDbForUserId(userId)).putLastBatchIdForGroup(groupId, batchId)
 	}
 
-	async getMetadata(userId: Id, key: string): Promise<Uint8Array | null> {
+	async getMetadata<K extends keyof OfflineDbMeta>(userId: Id, key: K): Promise<OfflineDbMeta[K] | null> {
 		return (await this.getDbForUserId(userId)).getMetadata(key)
 	}
 
-	async putMetadata(userId: Id, key: string, value: Uint8Array): Promise<void> {
+	async putMetadata<K extends keyof OfflineDbMeta>(userId: Id, key: K, value: OfflineDbMeta[K]): Promise<void> {
 		return (await this.getDbForUserId(userId)).putMetadata(key, value)
 	}
 

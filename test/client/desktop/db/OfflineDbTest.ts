@@ -5,7 +5,6 @@ import {GENERATED_MAX_ID, GENERATED_MIN_ID} from "../../../../src/api/common/uti
 import {UserTypeRef} from "../../../../src/api/entities/sys/User"
 import {concat, stringToUtf8Uint8Array} from "@tutao/tutanota-utils"
 import {calendarGroupId} from "../../calendar/CalendarTestUtils"
-import * as cborg from "cborg"
 import * as fs from "fs"
 import {assertThrows} from "@tutao/tutanota-test-utils"
 //in-memory database
@@ -298,47 +297,40 @@ o.spec("Offline DB ", function () {
 	})
 	o("put and get Metadata", async function () {
 		const date = new Date().getTime()
-		const value = cborg.encode(date)
-		await db.putMetadata("lastUpdateTime", value)
+		await db.putMetadata("lastUpdateTime", date)
 		const receivedEntity = await db.getMetadata("lastUpdateTime")
-		const decode = receivedEntity ? cborg.decode(receivedEntity) : null
-		o(decode).deepEquals(date)
+		o(receivedEntity).equals(date)
 	})
 	o.spec("Test encryption", function () {
 		o("can create new database", async function () {
 			//save something
 			const date = new Date().getTime()
-			const value = cborg.encode(date)
-			await db.putMetadata("lastUpdateTime", value)
+			await db.putMetadata("lastUpdateTime", date)
 			const receivedEntity = await db.getMetadata("lastUpdateTime")
-			const decode = receivedEntity ? cborg.decode(receivedEntity) : null
-			o(decode).deepEquals(date)
+			o(receivedEntity).equals(date)
 		})
 
 		o("can open existing database", async function () {
 			//save something
 			const date = new Date().getTime()
-			const value = cborg.encode(date)
-			await db.putMetadata("lastUpdateTime", value)
+			await db.putMetadata("lastUpdateTime", date)
 			await db.closeDb()
 
 			db = new OfflineDb(nativePath)
 			await db.init(database, offlineDatabaseTestKey)
 
 			const receivedEntity = await db.getMetadata("lastUpdateTime")
-			const decode = receivedEntity ? cborg.decode(receivedEntity) : null
-			o(decode).deepEquals(date)
+			o(receivedEntity).equals(date)
 		})
 
 		o("can't read from existing database if password is wrong", async function () {
 			//save something
 			const date = new Date().getTime()
-			const value = cborg.encode(date)
-			await db.putMetadata("lastUpdateTime", value)
+			await db.putMetadata("lastUpdateTime", date)
 			await db.closeDb()
 
 			db = new OfflineDb(nativePath)
-			const theWrongKey = new Uint8Array(Array.from(offlineDatabaseTestKey).map(b => b*b))
+			const theWrongKey = new Uint8Array(Array.from(offlineDatabaseTestKey).map(b => b * b))
 			await assertThrows(Error, () => db.init(database, theWrongKey))
 		})
 	})
