@@ -6,5 +6,5 @@ export interface NativeInterface {
 }
 
 export interface ExposedNativeInterface {
-	webauthnController: IWebauthn,
+	webauthn: IWebauthn,
 }

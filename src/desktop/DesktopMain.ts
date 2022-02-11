@@ -38,7 +38,8 @@ import {ThemeManager} from "./ThemeManager"
 import {BuildConfigKey, DesktopConfigKey} from "./config/ConfigKeys";
 import {DektopCredentialsEncryption, DesktopCredentialsEncryptionImpl} from "./credentials/DektopCredentialsEncryption"
 import {DesktopWebauthn} from "./2fa/DesktopWebauthn.js"
-import {webauthnIpcHandler, WebDialog} from "./WebDialog.js"
+import {webauthnIpcHandler, WebDialogController} from "./WebDialog.js"
+import {ExposedNativeInterface} from "../native/common/NativeInterface.js"
 
 mp()
 type Components = {
@@ -121,8 +122,14 @@ async function createComponents(): Promise<Components> {
 		log.error("Could not reschedule alarms", e)
 		return sse.resetStoredState()
 	})
-	const webDialog = new WebDialog(webauthnIpcHandler)
-	const desktopWebauthn = new DesktopWebauthn(webDialog)
+	const webDialogController = new WebDialogController(webauthnIpcHandler)
+
+	const exposedInterfaceFactory = (windowId: number): ExposedNativeInterface => {
+		return {
+			webauthn: new DesktopWebauthn(windowId, webDialogController)
+		}
+	}
+
 	tray.setWindowManager(wm)
 	const sse = new DesktopSseClient(app, conf, notifier, wm, desktopAlarmScheduler, desktopNet, desktopCrypto, alarmStorage, lang)
 	// It should be ok to await this, all we are waiting for is dynamic imports
@@ -144,7 +151,7 @@ async function createComponents(): Promise<Components> {
 		desktopAlarmScheduler,
 		themeManager,
 		credentialsEncryption,
-		desktopWebauthn
+		exposedInterfaceFactory
 	)
 	wm.setIPC(ipc)
 	conf.getConst(BuildConfigKey.appUserModelId).then(appUserModelId => {

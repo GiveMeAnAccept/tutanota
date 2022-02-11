@@ -146,7 +146,7 @@ class MainLocator implements IMainLocator {
 	get webauthnController(): IWebauthn {
 		const creds = navigator.credentials
 		return isDesktop()
-			? exposeRemote<ExposedNativeInterface>((msg) => this.native.invokeNative(msg)).webauthnController
+			? exposeRemote<ExposedNativeInterface>((msg) => this.native.invokeNative(msg)).webauthn
 			: new BrowserWebauthn(creds, window.location.hostname)
 	}
 

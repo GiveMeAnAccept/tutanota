@@ -17,11 +17,8 @@ import {register} from "./electron-localshortcut/LocalShortcut.js"
  * * returns the result of the call
  */
 
-export interface IWebDialog {
-	show<RemoteInterfaceType, ResponseType>(
-		urlToOpen: URL,
-		requestSender: (remote: RemoteInterfaceType) => Promise<ResponseType>,
-	): Promise<ResponseType>
+export interface IWebDialogController {
+	create<FacadeType extends object>(parentWindowId: number, urlToOpen: URL): Promise<WebDialog<FacadeType>>
 }
 
 export const webauthnIpcConfig = Object.freeze({
@@ -35,17 +32,43 @@ export type WebDialogIpcHandler = CentralIpcHandler<WebDialogIpcConfig>
 // Singleton
 export const webauthnIpcHandler: WebDialogIpcHandler = new CentralIpcHandler(ipcMain, webauthnIpcConfig)
 
-export class WebDialog implements IWebDialog {
+/** A dialog which was already loaded. Allows sending one request or closing it. */
+export class WebDialog<FacadeType extends object> {
+	constructor(
+		private facade: FacadeType,
+		private closedPromise: Promise<never>,
+		private browserWindow: BrowserWindow,
+	) {
+	}
+
+	makeRequest<T>(requestSender: (facade: FacadeType) => Promise<T>): Promise<T> {
+		return Promise
+			.race([
+				this.closedPromise,
+				requestSender(this.facade)
+			])
+			.catch((e) => {
+				console.log("web dialog error!", e)
+				throw e
+			})
+			.finally(() => {
+				if (!this.browserWindow.isDestroyed()) this.browserWindow.close()
+			})
+	}
+
+	cancel() {
+		this.browserWindow.close()
+	}
+}
+
+export class WebDialogController implements IWebDialogController {
 	constructor(
 		private readonly ipcHandler: WebDialogIpcHandler
 	) {
 	}
 
-	async show<FacadeType, ResponseType>(
-		urlToOpen: URL,
-		requestSender: (facade: FacadeType) => Promise<ResponseType>,
-	): Promise<ResponseType> {
-		const bw = await this.createBrowserWindow()
+	async create<FacadeType extends object>(parentWindowId: number, urlToOpen: URL): Promise<WebDialog<FacadeType>> {
+		const bw = await this.createBrowserWindow(parentWindowId)
 		const closeDefer = defer<never>()
 		bw.on("closed", () => {
 			console.log("web dialog window closed")
@@ -57,28 +80,18 @@ export class WebDialog implements IWebDialog {
 		})
 
 		bw.once('ready-to-show', () => bw.show())
+		bw.webContents.on("did-fail-load", () => closeDefer.reject(new Error(`Could not load web dialog at ${urlToOpen}`)))
 		await bw.loadURL(urlToOpen.toString())
 
 		const facade = await this.initRemoteWebauthn<FacadeType>(bw.webContents)
 
 		bw.webContents.on("destroyed", () => this.uninitRemoteWebauthn(bw.webContents))
 
-		return Promise
-			.race([
-				closeDefer.promise,
-				requestSender(facade)
-			])
-			.catch((e) => {
-				console.log("web dialog error!", e)
-				throw e
-			})
-			.finally(() => {
-				if (!bw.isDestroyed()) bw.close()
-			})
+		return new WebDialog(facade, closeDefer.promise, bw)
 	}
 
-	private async createBrowserWindow() {
-		const active = BrowserWindow.getFocusedWindow()
+	private async createBrowserWindow(parentWindowId: number) {
+		const active = BrowserWindow.fromId(parentWindowId)
 
 		return new BrowserWindow({
 			parent: active ?? undefined,

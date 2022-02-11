@@ -2,7 +2,7 @@ import {lang} from "../misc/LanguageViewModel"
 import type {WindowManager} from "./DesktopWindowManager"
 import {objToError} from "../api/common/utils/Utils"
 import type {DeferredObject} from "@tutao/tutanota-utils"
-import {base64ToUint8Array, defer, downcast, mapNullable, noOp} from "@tutao/tutanota-utils"
+import {base64ToUint8Array, defer, downcast, getFromMap, mapNullable, noOp} from "@tutao/tutanota-utils"
 import {Request, RequestError, Response} from "../api/common/MessageDispatcher"
 import type {DesktopConfig} from "./config/DesktopConfig"
 import type {DesktopSseClient} from "./sse/DesktopSseClient"
@@ -29,7 +29,8 @@ import {Logger} from "../api/common/Logger"
 import {DektopCredentialsEncryption} from "./credentials/DektopCredentialsEncryption"
 import {exposeLocal} from "../api/common/WorkerProxy"
 import {ExposedNativeInterface} from "../native/common/NativeInterface"
-import {IWebauthn} from "../misc/2fa/webauthn/IWebauthn.js"
+
+type FacadeHandler = (message: Request<"facade">) => Promise<any>
 
 /**
  * node-side endpoint for communication between the renderer threads and the node thread
@@ -51,11 +52,10 @@ export class IPC {
 	readonly _integrator: DesktopIntegrator
 	readonly _themeManager: ThemeManager
 	readonly _credentialsEncryption: DektopCredentialsEncryption
-	readonly webauthn: IWebauthn
 	_initialized: Array<DeferredObject<void>>
 	_requestId: number = 0
 	readonly _queue: Record<string, (...args: Array<any>) => any>
-	private readonly facadeHandler: (message: Request<NativeRequestType>) => Promise<any>
+	private readonly facadeHandlerPerWindow: Map<number, FacadeHandler> = new Map()
 
 	constructor(
 		conf: DesktopConfig,
@@ -74,7 +74,7 @@ export class IPC {
 		alarmScheduler: DesktopAlarmScheduler,
 		themeManager: ThemeManager,
 		credentialsEncryption: DektopCredentialsEncryption,
-		webauthnController: IWebauthn
+		private readonly exposedInterfaceFactory: (windowId: number) => ExposedNativeInterface,
 	) {
 		this._conf = conf
 		this._sse = sse
@@ -92,10 +92,6 @@ export class IPC {
 		this._alarmScheduler = alarmScheduler
 		this._themeManager = themeManager
 		this._credentialsEncryption = credentialsEncryption
-		this.webauthn = webauthnController
-		this.facadeHandler = exposeLocal<ExposedNativeInterface, NativeRequestType>({
-			webauthnController: this.webauthn
-		})
 
 		if (!!this._updater) {
 			this._updater.setUpdateDownloadedListener(() => {
@@ -431,11 +427,14 @@ export class IPC {
 			}
 
 			case "facade":
-				return this.facadeHandler(new Request(method, args))
-
+				return this.getHandlerForWindow(windowId)(new Request(method, args))
 			default:
 				return Promise.reject(new Error(`Invalid Method invocation: ${method}`))
 		}
+	}
+
+	private getHandlerForWindow(windowId: number): FacadeHandler {
+		return getFromMap(this.facadeHandlerPerWindow, windowId, () => exposeLocal(this.exposedInterfaceFactory(windowId)))
 	}
 
 	async _applyTheme(newThemeId: ThemeId) {
@@ -486,5 +485,6 @@ export class IPC {
 
 	removeWindow(id: number) {
 		delete this._initialized[id]
+		this.facadeHandlerPerWindow.delete(id)
 	}
 }

@@ -22,6 +22,7 @@ import {ThemeManager} from "../../../src/desktop/ThemeManager";
 import {DektopCredentialsEncryption, DesktopCredentialsEncryptionStub} from "../../../src/desktop/credentials/DektopCredentialsEncryption"
 import {object} from "testdouble"
 import {DesktopWebauthn} from "../../../src/desktop/2fa/DesktopWebauthn"
+import {ExposedNativeInterface} from "../../../src/native/common/NativeInterface"
 
 o.spec("IPC tests", function () {
 	const CALLBACK_ID = "to-main"
@@ -239,7 +240,7 @@ o.spec("IPC tests", function () {
 			alarmSchedulerMock,
 			themeManagerMock,
 			credentialsEncryption,
-			object<DesktopWebauthn>()
+			() => object<ExposedNativeInterface>()
 		)
 		o(electronMock.ipcMain.on.callCount).equals(0)
 		ipc.addWindow(WINDOW_ID)
