@@ -44,11 +44,11 @@ export interface ExposedWebauthnInterface {
 
 /** Actual web authentication implementation. Should not be used directly. */
 export interface IWebauthn {
-	isSupported(): boolean;
+	isSupported(): Promise<boolean>;
 
-	canAttemptChallengeForRpId(rpId: string): boolean;
+	canAttemptChallengeForRpId(rpId: string): Promise<boolean>;
 
-	canAttemptChallengeForU2FAppId(appId: string): boolean;
+	canAttemptChallengeForU2FAppId(appId: string): Promise<boolean>;
 
 	register(challenge: WebAuthnRegistrationChallenge): Promise<WebauthnRegistrationResult>;
 

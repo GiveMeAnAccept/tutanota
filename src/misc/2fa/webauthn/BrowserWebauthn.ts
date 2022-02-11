@@ -34,15 +34,15 @@ export class BrowserWebauthn implements IWebauthn {
 		this.appId = this.appidFromHostname(hostname)
 	}
 
-	canAttemptChallengeForRpId(rpId: string): boolean {
+	async canAttemptChallengeForRpId(rpId: string): Promise<boolean> {
 		return rpId === this.rpId
 	}
 
-	canAttemptChallengeForU2FAppId(appId: string): boolean {
+	async canAttemptChallengeForU2FAppId(appId: string): Promise<boolean> {
 		return this.appId === appId
 	}
 
-	isSupported(): boolean {
+	async isSupported(): Promise<boolean> {
 		return this.api != null &&
 			// @ts-ignore see polyfill.js
 			// We just stub BigInt in order to import cborg without issues but we can't actually use it

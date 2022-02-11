@@ -1,5 +1,5 @@
 import {decode} from "cborg"
-import {assert, downcast, firstThrow} from "@tutao/tutanota-utils"
+import {assert, downcast, firstThrow, partition} from "@tutao/tutanota-utils"
 import type {U2fRegisteredDevice} from "../../../api/entities/sys/U2fRegisteredDevice.js"
 import {createU2fRegisteredDevice} from "../../../api/entities/sys/U2fRegisteredDevice.js"
 import type {U2fChallenge} from "../../../api/entities/sys/U2fChallenge.js"
@@ -11,10 +11,10 @@ import {U2fKey} from "../../../api/entities/sys/U2fKey.js"
 
 /** Web authentication entry point for the rest of the app. */
 export interface IWebauthnClient {
-	isSupported(): boolean;
+	isSupported(): Promise<boolean>;
 
 	/** Whether it's possible to attempt a challenge. It might not be possible if there are not keys for this domain. */
-	canAttemptChallenge(challenge: U2fChallenge): boolean;
+	canAttemptChallenge(challenge: U2fChallenge): Promise<{canAttempt: Array<U2fKey>, cannotAttempt: Array<U2fKey>}>;
 
 	register(userId: Id, name: string, mailAddress: string, signal: AbortSignal): Promise<U2fRegisteredDevice>;
 
@@ -28,12 +28,28 @@ export class WebauthnClient implements IWebauthnClient {
 	) {
 	}
 
-	isSupported(): boolean {
+	isSupported(): Promise<boolean> {
 		return this.webauthn.isSupported()
 	}
 
-	canAttemptChallenge(challenge: U2fChallenge): boolean {
-		return challenge.keys.some(key => this.webauthn.canAttemptChallengeForRpId(key.appId) || this.webauthn.canAttemptChallengeForU2FAppId(key.appId))
+	async canAttemptChallenge(challenge: U2fChallenge): Promise<{canAttempt: Array<U2fKey>, cannotAttempt: Array<U2fKey>}> {
+		// Whitelabel keys can ge registered other (whitelabel) domains.
+		// If it's a new Webauthn key it will match rpId, otherwise it will match legacy appId.
+
+		// Partition in keys that might work and which certainly cannot work.
+		// Cannot use partition() because async.
+		let canAttempt: Array<U2fKey> = []
+		let cannotAttempt: Array<U2fKey> = []
+		for (const key of challenge.keys) {
+			if (await this.webauthn.canAttemptChallengeForRpId(key.appId) ||
+				await this.webauthn.canAttemptChallengeForU2FAppId(key.appId)
+			) {
+				canAttempt.push(key)
+			} else {
+				cannotAttempt.push(key)
+			}
+		}
+		return {canAttempt, cannotAttempt}
 	}
 
 	async register(userId: Id, displayName: string, mailAddress: string, signal: AbortSignal): Promise<U2fRegisteredDevice> {

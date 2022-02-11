@@ -28,15 +28,15 @@ export class DesktopWebauthn implements IWebauthn {
 		)
 	}
 
-	canAttemptChallengeForRpId(rpId: string): boolean {
+    async canAttemptChallengeForRpId(rpId: string): Promise<boolean> {
 		return true
 	}
 
-	canAttemptChallengeForU2FAppId(appId: string): boolean {
+	async canAttemptChallengeForU2FAppId(appId: string): Promise<boolean> {
 		return true
 	}
 
-	isSupported(): boolean {
+	async isSupported(): Promise<boolean> {
 		return true
 	}
 }
