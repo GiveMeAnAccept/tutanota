@@ -58,7 +58,6 @@ export class EditSecondFactorDialog {
 		qrCodeSvg: string | null
 		url: string
 	}>
-	private webauthnAbortController: AbortController | null = null
 
 	constructor(
 		private readonly entityClient: EntityClient,
@@ -104,7 +103,7 @@ export class EditSecondFactorDialog {
 			okAction: () => this.save(),
 			allowCancel: true,
 			okActionTextId: "save_action",
-			cancelAction: () => this.webauthnAbortController?.abort(),
+			cancelAction: () => this.webauthnClient.abortCurrentOperation(),
 		})
 	}
 
@@ -123,16 +122,12 @@ export class EditSecondFactorDialog {
 			}
 
 			try {
-				this.webauthnAbortController = new AbortController()
-				const abortSignal = this.webauthnAbortController.signal
-				this.u2fRegistrationData = await this.webauthnClient.register(this.user._id, this.name, this.mailAddress, abortSignal)
+				this.u2fRegistrationData = await this.webauthnClient.register(this.user._id, this.name, this.mailAddress)
 				this.verificationStatus = VerificationStatus.Success
 			} catch (e) {
 				console.log("Webauthn registration failed: ", e)
 				this.u2fRegistrationData = null
 				this.verificationStatus = VerificationStatus.Failed
-			} finally {
-				this.webauthnAbortController = null
 			}
 		}
 
@@ -293,7 +288,7 @@ export class EditSecondFactorDialog {
 		this.verificationStatus = newValue === FactorTypes.WEBAUTHN ? VerificationStatus.Initial : VerificationStatus.Progress
 
 		if (newValue !== FactorTypes.WEBAUTHN) {
-			this.webauthnAbortController?.abort()
+			this.webauthnClient.abortCurrentOperation()
 		}
 	}
 

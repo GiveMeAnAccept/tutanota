@@ -39,4 +39,8 @@ export class DesktopWebauthn implements IWebauthn {
 	async isSupported(): Promise<boolean> {
 		return true
 	}
+
+	async abortCurrentOperation(): Promise<void> {
+		// no-op for now, we would need to close window here
+	}
 }

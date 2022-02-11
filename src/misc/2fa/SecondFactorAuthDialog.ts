@@ -39,7 +39,6 @@ type OtpState = {
  *  - lost access button
  * */
 export class SecondFactorAuthDialog {
-	private webauthnAbortController: AbortController | null = null
 	private waitingForSecondFactorDialog: Dialog | null = null
 	private webauthnState: WebauthnState = {state: "init"}
 	private otpState: OtpState = {code: "", inProgress: false}
@@ -72,7 +71,7 @@ export class SecondFactorAuthDialog {
 			this.waitingForSecondFactorDialog?.close()
 		}
 
-		this.webauthnAbortController?.abort()
+		this.webauthnClient.abortCurrentOperation()
 		this.waitingForSecondFactorDialog = null
 
 		this.onClose()
@@ -162,7 +161,7 @@ export class SecondFactorAuthDialog {
 	}
 
 	private async cancel(): Promise<void> {
-		this.webauthnAbortController?.abort()
+		this.webauthnClient.abortCurrentOperation()
 		await this.loginFacade.cancelCreateSession(this.authData.sessionId)
 		this.close()
 	}
@@ -171,14 +170,11 @@ export class SecondFactorAuthDialog {
 		this.webauthnState = {
 			state: "progress",
 		}
-		this.webauthnAbortController = new AbortController()
-		const abortSignal = this.webauthnAbortController.signal
-		abortSignal.addEventListener("abort", () => console.log("aborted webauthn"))
 		const sessionId = this.authData.sessionId
 		const challenge = assertNotNull(u2fChallenge.u2f)
 
 		try {
-			const webauthnResponseData = await this.webauthnClient.authenticate(challenge, abortSignal)
+			const webauthnResponseData = await this.webauthnClient.authenticate(challenge)
 			const authData = createSecondFactorAuthData({
 				type: SecondFactorType.webauthn,
 				session: sessionId,
@@ -187,7 +183,6 @@ export class SecondFactorAuthDialog {
 			await this.loginFacade.authenticateWithSecondFactor(authData)
 		} catch (e) {
 			if (e instanceof CancelledError) {
-				this.webauthnAbortController = null
 				this.webauthnState = {
 					state: "init",
 				}
@@ -209,7 +204,6 @@ export class SecondFactorAuthDialog {
 				throw e
 			}
 		} finally {
-			this.webauthnAbortController = null
 			m.redraw()
 		}
 	}

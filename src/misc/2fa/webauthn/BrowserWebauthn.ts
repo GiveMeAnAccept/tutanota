@@ -22,9 +22,10 @@ export class BrowserWebauthn implements IWebauthn {
 	 * Relying Party Identifier
 	 * see https://www.w3.org/TR/webauthn-2/#public-key-credential-source-rpid
 	 */
-	private readonly rpId: string;
+	private readonly rpId: string
 	/** Backward-compatible identifier for the legacy U2F API */
-	private readonly appId: string;
+	private readonly appId: string
+	private currentOperationSignal: AbortController | null = null
 
 	constructor(
 		private readonly api: CredentialsContainer,
@@ -74,10 +75,10 @@ export class BrowserWebauthn implements IWebauthn {
 			timeout: WEBAUTHN_TIMEOUT_MS,
 			attestation: "none",
 		}
+		this.currentOperationSignal = new AbortController()
 		const credential = await this.api.create({
 			publicKey: publicKeyCredentialCreationOptions,
-			// TODO
-			// signal,
+			signal: this.currentOperationSignal.signal
 		}) as PublicKeyCredential
 
 		return {
@@ -100,11 +101,11 @@ export class BrowserWebauthn implements IWebauthn {
 		}
 		let assertion
 
+		this.currentOperationSignal = new AbortController()
 		try {
 			assertion = await this.api.get({
 				publicKey: publicKeyCredentialRequestOptions,
-				// TODO
-				// signal,
+				signal: this.currentOperationSignal.signal
 			})
 		} catch (e) {
 			if (e.name === "AbortError") {
@@ -126,6 +127,11 @@ export class BrowserWebauthn implements IWebauthn {
 			signature: assertionResponse.signature,
 			clientDataJSON: assertionResponse.clientDataJSON,
 		}
+	}
+
+	async abortCurrentOperation(): Promise<void> {
+		this.currentOperationSignal?.abort()
+		this.currentOperationSignal = null
 	}
 
 	private rpIdFromHostname(hostname: string): string {

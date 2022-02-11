@@ -1,5 +1,5 @@
 import {decode} from "cborg"
-import {assert, downcast, firstThrow, partition} from "@tutao/tutanota-utils"
+import {assert, downcast, firstThrow} from "@tutao/tutanota-utils"
 import type {U2fRegisteredDevice} from "../../../api/entities/sys/U2fRegisteredDevice.js"
 import {createU2fRegisteredDevice} from "../../../api/entities/sys/U2fRegisteredDevice.js"
 import type {U2fChallenge} from "../../../api/entities/sys/U2fChallenge.js"
@@ -16,9 +16,11 @@ export interface IWebauthnClient {
 	/** Whether it's possible to attempt a challenge. It might not be possible if there are not keys for this domain. */
 	canAttemptChallenge(challenge: U2fChallenge): Promise<{canAttempt: Array<U2fKey>, cannotAttempt: Array<U2fKey>}>;
 
-	register(userId: Id, name: string, mailAddress: string, signal: AbortSignal): Promise<U2fRegisteredDevice>;
+	register(userId: Id, name: string, mailAddress: string): Promise<U2fRegisteredDevice>;
 
-	authenticate(challenge: U2fChallenge, signal?: AbortSignal): Promise<WebauthnResponseData>;
+	authenticate(challenge: U2fChallenge): Promise<WebauthnResponseData>;
+
+	abortCurrentOperation(): Promise<void>;
 }
 
 export class WebauthnClient implements IWebauthnClient {
@@ -52,7 +54,7 @@ export class WebauthnClient implements IWebauthnClient {
 		return {canAttempt, cannotAttempt}
 	}
 
-	async register(userId: Id, displayName: string, mailAddress: string, signal: AbortSignal): Promise<U2fRegisteredDevice> {
+	async register(userId: Id, displayName: string, mailAddress: string): Promise<U2fRegisteredDevice> {
 		const challenge = this.getChallenge()
 		const name = `${userId} ${mailAddress} ${displayName}`
 		const registrationResult = await this.webauthn.register({challenge, userId, name, displayName, domain: this.clientWebRoot})
@@ -89,6 +91,10 @@ export class WebauthnClient implements IWebauthnClient {
 			signature: new Uint8Array(signResult.signature),
 			authenticatorData: new Uint8Array(signResult.authenticatorData),
 		})
+	}
+
+	abortCurrentOperation(): Promise<void> {
+		return this.webauthn.abortCurrentOperation()
 	}
 
 	private selectAuthenticationUrl(challenge: U2fChallenge): string {

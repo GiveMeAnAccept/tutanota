@@ -53,6 +53,8 @@ export interface IWebauthn {
 	register(challenge: WebAuthnRegistrationChallenge): Promise<WebauthnRegistrationResult>;
 
 	sign(challenge: WebAuthnSignChallenge): Promise<WebauthnSignResult>;
+
+	abortCurrentOperation(): Promise<void>;
 }
 
 export const WEBAUTHN_RP_ID = "tutanota.com"
