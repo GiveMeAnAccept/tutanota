@@ -408,7 +408,7 @@ export class SendMailModel {
 		let previousMail: Mail | null = null
 
 		const conversationEntry = await this._entity.load(ConversationEntryTypeRef, draft.conversationEntry)
-		let conversationType = downcast(conversationEntry.conversationType)
+		const conversationType = downcast<ConversationType>(conversationEntry.conversationType)
 
 		if (conversationEntry.previous) {
 			try {

@@ -29,6 +29,9 @@ export async function build(buildOptions, serverOptions, log) {
 			envPlugin(localEnv),
 			resolveTestLibsPlugin(),
 			...rollupDebugPlugins(path.resolve(".."), {outDir: "build"}),
+			// json is imported by is-core-module
+			// which is a dependency of testdouble
+			// so we need rollup-plugin-json to compile for tests
 			rollupPluginJson(),
 			nodeResolve({preferBuiltins: true}),
 		],
@@ -68,9 +71,9 @@ function resolveTestLibsPlugin() {
 					// nollup only rewrites absolute paths so resolve path first.
 					return path.resolve("../node_modules/mithril/test-utils/browserMock.js")
 				case "ospec":
-					return ("../node_modules/ospec/ospec.js")
+					return "../node_modules/ospec/ospec.js"
 				case "testdouble":
-					return ("../node_modules/testdouble/dist/testdouble.js")
+					return "../node_modules/testdouble/dist/testdouble.js"
 				case "crypto":
 				case "xhr2":
 				case "express":

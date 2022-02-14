@@ -53,11 +53,15 @@ import * as td from "testdouble"
 	await random.addEntropy([{data: 36, entropy: 256, source: "key"}])
 	preTest()
 
-
-	o.afterEach(function () {
+	o.before(function () {
+		// testdouble complains about certain mocking related code smells, and also prints a warning whenever you replace a property on an object.
+		// it's very very noisy, so we turn it off
 		td.config({
 			ignoreWarnings: true
 		})
+	})
+
+	o.afterEach(function () {
 		td.reset()
 	})
 
